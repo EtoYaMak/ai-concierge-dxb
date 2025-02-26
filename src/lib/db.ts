@@ -1,17 +1,28 @@
-import { neon } from "@neondatabase/serverless";
+import { neon, neonConfig } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import * as schema from "@/shared/schema";
 
-// Check for DATABASE_URL only in production
-if (process.env.NODE_ENV === "production" && !process.env.DATABASE_URL) {
-  console.error("DATABASE_URL must be set in production environment");
-  // Don't throw error immediately to allow initialization
+// Provide a more helpful error message
+if (!process.env.DATABASE_URL) {
+  console.error("❌ DATABASE_URL environment variable is not set");
+  console.error("Make sure you have a .env.local file with DATABASE_URL");
 }
 
-// Try to create SQL with fallback for development
-const sql = process.env.DATABASE_URL
-  ? neon(process.env.DATABASE_URL)
-  : neon("postgresql://postgres:postgres@localhost:5432/dubai_ai"); // Fallback for development
+// Configure Neon
+// @ts-ignore - fetchOptions may not be in type definitions but works at runtime
+neonConfig.fetchOptions = {
+  cache: "no-store",
+};
 
-// Create a Drizzle ORM instance
+// Use a fallback connection string for development
+const connectionString =
+  process.env.DATABASE_URL ||
+  (process.env.NODE_ENV === "development"
+    ? "postgres://placeholder" // This will fail, but with a clearer error
+    : "");
+
+// Create SQL client
+const sql = neon(connectionString);
+
+// Use the sql with drizzle
 export const db = drizzle(sql, { schema });

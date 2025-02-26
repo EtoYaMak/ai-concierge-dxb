@@ -1,33 +1,58 @@
+import { db } from "@/lib/db";
 import { type Activity } from "@/shared/schema";
+import { sql } from "drizzle-orm";
 
 export class VectorStore {
-  private data: Activity[] = [];
   private initialized = false;
-  private itemsById: Map<string, Activity> = new Map();
-
-  // Cache for previously computed similarities
+  private cacheSize = 50;
   private similarityCache: Map<string, Activity[]> = new Map();
-  private cacheSize = 50; // Limit cache size
+  private initializationPromise: Promise<boolean> | null = null;
 
-  setData(data: Activity[]) {
-    this.data = data;
-    this.initialized = data.length > 0;
-
-    // Create lookup by ID for faster access
-    this.itemsById.clear();
-    for (const item of data) {
-      if (item.id) this.itemsById.set(item.id.toString(), item);
+  async initialize(): Promise<boolean> {
+    // If already initialized, return immediately
+    if (this.initialized) {
+      return true;
     }
 
-    console.log(`VectorStore: Initialized with ${this.data.length} activities`);
+    // If initialization is in progress, wait for it
+    if (this.initializationPromise) {
+      return this.initializationPromise;
+    }
+
+    // Start initialization
+    this.initializationPromise = this._initialize();
+    return this.initializationPromise;
+  }
+
+  private async _initialize(): Promise<boolean> {
+    try {
+      console.log("Initializing vector store...");
+      const countResult = await db.execute(
+        sql`SELECT COUNT(*) FROM activities`
+      );
+      const count = parseInt(countResult.rows[0].count as string, 10);
+
+      this.initialized = count > 0;
+      console.log(
+        `VectorStore: Initialized with ${count} activities in database`
+      );
+
+      return this.initialized;
+    } catch (error) {
+      console.error("Failed to initialize vector store:", error);
+      this.initialized = false;
+      return false;
+    } finally {
+      this.initializationPromise = null;
+    }
   }
 
   async findSimilar(
     queryEmbeddings: number[],
     limit: number = 5
   ): Promise<Activity[]> {
-    if (!this.initialized || this.data.length === 0) {
-      console.warn("VectorStore: No activities data loaded");
+    if (!this.initialized) {
+      console.warn("VectorStore: Not initialized");
       return [];
     }
 
@@ -40,38 +65,44 @@ export class VectorStore {
       return this.similarityCache.get(cacheKey)!;
     }
 
-    const startTime = Date.now();
+    const startTime = performance.now();
 
-    // Filter out items without embeddings before scoring
-    const validItems = this.data.filter(
-      (item) => item.embeddings && item.embeddings.length > 0
-    );
-    if (validItems.length === 0) {
-      console.warn("VectorStore: No activities with valid embeddings found");
+    // Log the query being executed
+    console.log("Executing vector search query");
+
+    try {
+      console.time("format-vector");
+      const vectorString = `[${queryEmbeddings.join(",")}]`;
+      console.timeEnd("format-vector");
+
+      console.time("db-connection");
+      const queryResult = await db.execute(
+        sql`
+          SELECT *
+          FROM activities
+          ORDER BY embedding_vector <=> ${vectorString}::vector
+          LIMIT ${limit}
+        `
+      );
+      console.timeEnd("db-connection");
+
+      const endTime = performance.now();
+      console.log(`Vector search completed in ${endTime - startTime}ms`);
+      console.log(
+        `Found ${queryResult.rows.length} activities via vector search`
+      );
+
+      // Extract rows from the query result
+      const results = queryResult.rows as Activity[];
+
+      // Cache the results
+      this.cacheResults(cacheKey, results);
+
+      return results;
+    } catch (error) {
+      console.error("Vector search error:", error);
       return [];
     }
-
-    // Score all activities based on cosine similarity
-    const scored = validItems.map((item) => ({
-      item,
-      score: this.cosineSimilarity(queryEmbeddings, item.embeddings || []),
-    }));
-
-    // Sort by score and get top matches
-    const results = scored
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit)
-      .map((s) => s.item);
-
-    // Cache the results
-    this.cacheResults(cacheKey, results);
-
-    const endTime = Date.now();
-    console.log(
-      `VectorStore: Found ${results.length} matches in ${endTime - startTime}ms`
-    );
-
-    return results;
   }
 
   private cacheResults(key: string, results: Activity[]) {
@@ -86,35 +117,12 @@ export class VectorStore {
     this.similarityCache.set(key, results);
   }
 
-  private cosineSimilarity(a: number[], b: number[]): number {
-    if (a.length !== b.length) {
-      console.warn(
-        `VectorStore: Embedding length mismatch: ${a.length} vs ${b.length}`
-      );
-      return 0;
-    }
-
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-
-    // Faster loop implementation
-    for (let i = 0; i < a.length; i++) {
-      dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
-    }
-
-    if (normA === 0 || normB === 0) {
-      console.warn("VectorStore: Zero magnitude vector encountered");
-      return 0;
-    }
-
-    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-  }
-
   isInitialized(): boolean {
     return this.initialized;
+  }
+
+  setInitialized(value: boolean): void {
+    this.initialized = value;
   }
 }
 

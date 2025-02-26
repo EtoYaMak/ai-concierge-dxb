@@ -5,6 +5,8 @@ import "./globals.css";
 import { ToastProvider } from "@/hooks/use-toast";
 import { ReactQueryProvider } from "@/components/providers/ReactQueryProvider";
 import { AppInitializer } from "@/components/AppInitializer";
+import { initializeApp } from '@/app/api/init';
+import { ChatProvider } from "@/context/chat-context";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,15 +19,23 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dubai Concierge",
-  description: "Your personal guide to Dubai's finest experiences",
+  title: "Dubai AI Concierge",
+  description: "Your personal guide to Dubai",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
+  // Initialize here inside the component
+  try {
+    await initializeApp();
+    console.log("✓ App initialized in layout");
+  } catch (error) {
+    console.error("⚠️ Failed to initialize app:", error);
+  }
+
   return (
     <html lang="en">
       <body
@@ -33,8 +43,10 @@ export default function RootLayout({
       >
         <ReactQueryProvider>
           <ToastProvider>
-            <AppInitializer />
-            {children}
+            <ChatProvider>
+              <AppInitializer />
+              {children}
+            </ChatProvider>
           </ToastProvider>
         </ReactQueryProvider>
       </body>

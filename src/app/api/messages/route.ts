@@ -75,6 +75,13 @@ export async function POST(req: NextRequest) {
     const savedUserMessage = await storage.createMessage(userMessage);
     console.timeEnd("store-user-message");
 
+    // Initialize vector store if needed
+    if (!vectorStore.isInitialized()) {
+      console.time("vector-store-init");
+      await vectorStore.initialize();
+      console.timeEnd("vector-store-init");
+    }
+
     // Process in parallel - both embedding generation and message history
     console.time("parallel-processing");
     const [queryEmbeddings, messageHistory] = await Promise.all([
@@ -99,7 +106,7 @@ export async function POST(req: NextRequest) {
     // Store AI response
     console.time("store-ai-message");
     const savedAiMessage = await storage.createMessage({
-      content: aiResponse,
+      content: aiResponse as string,
       role: "assistant",
       user_id,
     });

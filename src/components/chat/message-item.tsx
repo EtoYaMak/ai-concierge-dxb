@@ -4,6 +4,7 @@ import { type Message } from "@/shared/schema";
 import { Bot, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
+import { TypingIndicator } from "@/components/chat/typing-indicator";
 
 interface MessageItemProps {
   message: Message;
@@ -37,20 +38,13 @@ export default function MessageItem({ message }: MessageItemProps) {
           {isBot ? "Dubai Concierge" : "You"}
         </div>
         <div className="prose prose-sm dark:prose-invert max-w-none [&>p:last-child]:mb-0">
-          <ReactMarkdown
-            components={{
-              p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
-              h1: ({ children }) => <h1 className="text-lg font-bold mb-3">{children}</h1>,
-              h2: ({ children }) => <h2 className="text-base font-semibold mb-2">{children}</h2>,
-              h3: ({ children }) => <h3 className="text-sm font-medium mb-2">{children}</h3>,
-              ul: ({ children }) => <ul className="list-disc list-inside mb-3 space-y-1">{children}</ul>,
-              li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-              strong: ({ children }) => <strong className="font-semibold text-primary">{children}</strong>,
-              em: ({ children }) => <em className="italic text-primary/90">{children}</em>,
-            }}
-          >
-            {message.content}
-          </ReactMarkdown>
+          <div className="whitespace-pre-wrap">
+            {message.isStreaming && message.content === "" ? (
+              <TypingIndicator />
+            ) : (
+              <ReactMarkdown>{message.content}</ReactMarkdown>
+            )}
+          </div>
         </div>
       </div>
     </div>

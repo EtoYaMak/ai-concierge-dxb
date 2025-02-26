@@ -1,85 +1,138 @@
 import OpenAI from "openai";
 import { type Activity } from "@/shared/schema";
 import NodeCache from "node-cache";
+import {
+  type ChatCompletionSystemMessageParam,
+  type ChatCompletionUserMessageParam,
+} from "openai/resources/chat/completions";
 
 export const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // We can use a faster model but with better prompting for quality output
 // You can switch back to gpt-4o if responses are still not high quality enough
-const CHAT_MODEL = "gpt-3.5-turbo";
+const CHAT_MODEL = "gpt-4o-mini";
 
 const responseCache = new NodeCache({ stdTTL: 3600, checkperiod: 600 }); // 1 hour cache
 const embeddingCache = new NodeCache({ stdTTL: 86400, checkperiod: 3600 }); // 24 hour cache
 
 export async function generateResponse(
-  messages: { role: "user" | "assistant" | "system"; content: string }[],
-  relevantData: Activity[]
+  messages: { role: string; content: string }[],
+  relevantData: Activity[],
+  streamCallback?: (chunk: string) => void
 ): Promise<string> {
-  // Create a cache key from the last user message and relevant data IDs
-  const lastUserMessage =
-    messages.filter((m) => m.role === "user").pop()?.content || "";
-  const dataIds = relevantData
-    .map((d) => d.id || d.originalId || d.name)
-    .join(",");
-
-  const cacheKey = `response:${lastUserMessage}:${dataIds}`.substring(0, 100);
-
-  // Check if we have this response cached
-  const cachedResponse = responseCache.get(cacheKey);
-  if (cachedResponse) {
-    console.log("Using cached AI response");
-    return cachedResponse as string;
-  }
-
-  // Restore the premium styling but keep it efficient
-  const baseSystemPrompt = `You are a premium Dubai concierge assistant, providing sophisticated, well-formatted responses about Dubai's luxury experiences and attractions.
-
-Use this relevant information about Dubai attractions:
-${relevantData
-  .map((d) => {
-    return `- **${d.name}** (${d.category}/${d.subcategory}): ${
-      d.description?.substring(0, 200) || ""
-    }
-    ${d.timing ? `Hours: ${d.timing}` : ""}
-    ${d.pricing ? `Price: ${d.pricing}` : ""}
-    ${d.address ? `Location: ${d.address}` : ""}`;
-  })
-  .join("\n\n")}
-
-Always format your responses in a premium style:
-- Use **bold** for venue names and headings
-- Structure with markdown headings (## for sections)
-- Use bullet points for listing features or options
-- Include practical details: timing, location, price ranges
-- Be concise but comprehensive and professional
-- If suggesting multiple venues, present each with clear separation
-
-Your tone should be professional, knowledgeable and sophisticated - you're a luxury concierge for high-end visitors to Dubai.`;
-
   try {
-    console.time("openai-response");
-    const response = await openai.chat.completions.create({
-      model: CHAT_MODEL,
-      messages: [
-        { role: "system", content: baseSystemPrompt },
-        ...messages.map((m) => ({ role: m.role, content: m.content })),
-      ],
-      temperature: 0.7,
-      max_tokens: 1000,
-    });
-    console.timeEnd("openai-response");
+    // Format context from relevant activities
+    const contextData = relevantData
+      .map((item) => {
+        return `
+Name: ${item.name}
+Category: ${item.category}
+${item.information ? `Information: ${item.information}` : ""}
+${item.timing ? `Timing: ${item.timing}` : ""}
+${item.address ? `Address: ${item.address}` : ""}
+`;
+      })
+      .join("\n");
 
-    const responseText =
-      response.choices[0].message.content ||
-      "I apologize, but I couldn't generate a response.";
+    // Prepare system message with context and instructions
+    const systemMessage = `
+You are a helpful AI concierge for tourists in Dubai. Use the following relevant information to answer the user's query:
 
-    // Cache the response
-    responseCache.set(cacheKey, responseText);
+${contextData}
 
-    return responseText;
+Always be polite and helpful. If you don't know something, acknowledge it and suggest alternatives.
+
+Format your responses using markdown for better readability:
+- Use ## for section headers
+- Use **bold** for emphasis and key points
+- Use bullet points and numbered lists where appropriate
+- Use > for important notes or quotes
+`;
+
+    // If streaming is requested, use streaming approach
+    if (streamCallback) {
+      const stream = await openai.chat.completions.create({
+        model: CHAT_MODEL,
+        messages: [
+          {
+            role: "system",
+            content: systemMessage,
+          } as ChatCompletionSystemMessageParam,
+          ...messages.map((msg) => {
+            if (msg.role === "user") {
+              return {
+                role: "user",
+                content: msg.content,
+              } as ChatCompletionUserMessageParam;
+            } else if (msg.role === "assistant") {
+              return { role: "assistant", content: msg.content } as const;
+            } else if (msg.role === "system") {
+              return {
+                role: "system",
+                content: msg.content,
+              } as ChatCompletionSystemMessageParam;
+            }
+            // Fall back to user if unknown role
+            return {
+              role: "user",
+              content: msg.content,
+            } as ChatCompletionUserMessageParam;
+          }),
+        ],
+        stream: true,
+      });
+
+      let fullResponse = "";
+
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content || "";
+        if (content) {
+          fullResponse += content;
+          streamCallback(content);
+        }
+      }
+
+      return fullResponse;
+    } else {
+      // Original non-streaming approach
+      const response = await openai.chat.completions.create({
+        model: CHAT_MODEL,
+        messages: [
+          {
+            role: "system",
+            content: systemMessage,
+          } as ChatCompletionSystemMessageParam,
+          ...messages.map((msg) => {
+            if (msg.role === "user") {
+              return {
+                role: "user",
+                content: msg.content,
+              } as ChatCompletionUserMessageParam;
+            } else if (msg.role === "assistant") {
+              return { role: "assistant", content: msg.content } as const;
+            } else if (msg.role === "system") {
+              return {
+                role: "system",
+                content: msg.content,
+              } as ChatCompletionSystemMessageParam;
+            }
+            // Fall back to user if unknown role
+            return {
+              role: "user",
+              content: msg.content,
+            } as ChatCompletionUserMessageParam;
+          }),
+        ],
+      });
+
+      return (
+        response.choices[0].message.content ||
+        "I'm not sure how to respond to that."
+      );
+    }
   } catch (error) {
     console.error("OpenAI API error:", error);
-    throw new Error("Failed to generate response");
+    return "Sorry, I'm having trouble generating a response right now.";
   }
 }
 

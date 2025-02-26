@@ -1,6 +1,7 @@
 import { pgTable, text, serial, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { relations, sql } from "drizzle-orm";
 
 export const messages = pgTable("messages", {
   id: serial("id").primaryKey(),
@@ -41,7 +42,10 @@ export const insertActivitySchema = createInsertSchema(activities)
     originalId: z.string().optional(),
   });
 
-export type Message = typeof messages.$inferSelect;
+export type Message = typeof messages.$inferSelect & {
+  isStreaming?: boolean;
+};
+
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Activity = typeof activities.$inferSelect;
 export type InsertActivity = z.infer<typeof insertActivitySchema>;

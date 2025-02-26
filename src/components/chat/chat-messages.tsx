@@ -1,66 +1,66 @@
 "use client";
 
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { type Message } from "@/shared/schema";
 import MessageItem from "./message-item";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useChatContext } from "@/context/chat-context";
+import { type Message } from "@/shared/schema";
 
 interface ChatMessagesProps {
   userId: string | null;
 }
 
 export default function ChatMessages({ userId }: ChatMessagesProps) {
-  const { data: messages, isLoading } = useQuery<Message[]>({
+  const { messages, addMessage } = useChatContext();
+
+  // Fetch messages from API
+  const { data: apiMessages, isLoading } = useQuery({
     queryKey: ["/api/messages", userId],
     queryFn: async () => {
       if (!userId) return [];
 
-      try {
-        // Ensure userId is properly encoded in the URL
-        const url = new URL("/api/messages", window.location.origin);
-        url.searchParams.append("user_id", userId);
-
-        const response = await fetch(url.toString());
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => null);
-          console.error("Error fetching messages:", response.status, errorData);
-          throw new Error(`Failed to fetch messages: ${response.statusText}`);
-        }
-
-        return response.json();
-      } catch (error) {
-        console.error("Failed to fetch messages:", error);
-        throw error;
+      const response = await fetch(`/api/messages?user_id=${userId}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch messages");
       }
+      return response.json() as Promise<Message[]>;
     },
     enabled: !!userId,
   });
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        {[...Array(3)].map((_, i) => (
-          <Skeleton key={i} className="h-[100px]" />
-        ))}
-      </div>
-    );
+  // Sync API messages with context
+  useEffect(() => {
+    if (apiMessages && apiMessages.length > 0 && messages.length === 0) {
+      // Only populate if context is empty
+      apiMessages.forEach(msg => addMessage(msg));
+    }
+  }, [apiMessages, addMessage, messages.length]);
+
+  // Add this logging
+  useEffect(() => {
+    console.log("Messages updated:", messages.length);
+  }, [messages]);
+
+  if (!userId) {
+    return <div className="p-8 text-center">Please log in to start chatting.</div>;
   }
 
-  if (!messages?.length) {
-    return (
-      <div className="text-center text-muted-foreground py-12">
-        <h3 className="text-lg font-medium mb-2">Welcome to Dubai Concierge!</h3>
-        <p className="text-sm">Ask me anything about tourist attractions, dining, or activities in Dubai.</p>
-      </div>
-    );
+  if (isLoading && messages.length === 0) {
+    return <div className="p-8 text-center">Loading messages...</div>;
   }
 
+  // Use context messages for rendering
   return (
-    <div className="space-y-6">
-      {messages.map((message) => (
-        <MessageItem key={message.id} message={message} />
-      ))}
+    <div className="space-y-4 py-5">
+      {messages.length === 0 ? (
+        <div className="text-center text-muted-foreground py-8">
+          No messages yet. Start the conversation!
+        </div>
+      ) : (
+        messages.map((message) => (
+          <MessageItem key={message.id} message={message} />
+        ))
+      )}
     </div>
   );
 }

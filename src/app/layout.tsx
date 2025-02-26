@@ -1,12 +1,10 @@
-"use client";
-
-import { useEffect } from "react";
+// This must be a server component (no "use client" directive)
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/hooks/use-toast";
 import { ReactQueryProvider } from "@/components/providers/ReactQueryProvider";
-import { initializeApp } from "./api/init";
+import { AppInitializer } from "@/components/AppInitializer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -22,24 +20,6 @@ export const metadata: Metadata = {
   title: "Dubai Concierge",
   description: "Your personal guide to Dubai's finest experiences",
 };
-
-function AppInitializer() {
-  useEffect(() => {
-    initializeApp()
-      .then((success) => {
-        if (success) {
-          console.log("App initialized successfully");
-        } else {
-          console.warn("App initialization had some issues");
-        }
-      })
-      .catch((error) => {
-        console.error("Failed to initialize app:", error);
-      });
-  }, []);
-
-  return null;
-}
 
 export default function RootLayout({
   children,

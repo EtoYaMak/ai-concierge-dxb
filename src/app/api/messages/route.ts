@@ -8,6 +8,9 @@ import { vectorStore } from "../lib/vectorStore";
 import { generateResponse, generateEmbeddings } from "../lib/openai";
 import { z } from "zod";
 
+// Add this to the top of your routes
+export const runtime = "edge";
+
 // GET /api/messages - Get messages by user ID
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);

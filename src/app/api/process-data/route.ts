@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processNestedData } from "../lib/processData";
 
-export async function POST(req: NextRequest) {
+export async function POST(_req: NextRequest) {
   try {
     await processNestedData();
     return NextResponse.json({ message: "Data processing completed" });

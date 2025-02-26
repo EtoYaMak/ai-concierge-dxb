@@ -60,7 +60,7 @@ export default function Home() {
           </span>
 
           <p className="text-muted-foreground text-sm">
-            Your personal guide to Dubai's finest experiences
+            Your personal guide to Dubai&apos;s finest experiences
           </p>
         </div>
 

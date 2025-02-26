@@ -34,7 +34,7 @@ export default function LoginPage() {
                         Dubai AI Concierge
                     </CardTitle>
                     <CardDescription>
-                        Your personal guide to Dubai's finest experiences
+                        Your personal guide to Dubai&apos;s finest experiences
                     </CardDescription>
                 </CardHeader>
                 <form onSubmit={handleLogin}>

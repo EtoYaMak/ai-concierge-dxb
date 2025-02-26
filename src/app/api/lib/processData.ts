@@ -6,7 +6,7 @@ import nestedData from "../../../assests/nested_data.json";
 const BATCH_SIZE = 5; // Process 5 activities at a time to avoid rate limits
 
 async function processNestedData() {
-  const activities: (InsertActivity & { embeddings: number[] })[] = [];
+  //const activities: (InsertActivity & { embeddings: number[] })[] = [];
   let processed = 0;
   let total = 0;
 

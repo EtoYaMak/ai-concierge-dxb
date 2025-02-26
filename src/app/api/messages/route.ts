@@ -38,8 +38,27 @@ export async function GET(req: NextRequest) {
 // POST /api/messages - Create a new message and get AI response
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { content, user_id } = body;
+    console.log("API request received:", {
+      headers: Object.fromEntries(req.headers.entries()),
+      url: req.url,
+      method: req.method,
+    });
+
+    // Changed to handle the request body more safely for Vercel environment
+    let body;
+    try {
+      body = await req.json();
+    } catch (error) {
+      console.error("Error parsing JSON body:", error);
+      return NextResponse.json(
+        { error: "Invalid JSON in request body" },
+        { status: 400 }
+      );
+    }
+
+    console.log("Request body:", body);
+
+    const { content, user_id } = body || {};
 
     if (!user_id) {
       return NextResponse.json(
@@ -87,7 +106,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Invalid message format" },
+        { error: "Invalid message format", details: error.errors },
         { status: 400 }
       );
     } else {

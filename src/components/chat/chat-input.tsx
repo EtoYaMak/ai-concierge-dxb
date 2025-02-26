@@ -19,14 +19,32 @@ export default function ChatInput({ userId }: ChatInputProps) {
 
   const mutation = useMutation({
     mutationFn: async (content: string) => {
-      const res = await apiRequest("POST", "/api/messages", {
-        content,
-        role: "user",
-        user_id: userId,
-      });
-      return res.json();
+      try {
+        const response = await fetch('/api/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            content: content,
+            user_id: userId,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('API error:', errorData);
+          throw new Error(`API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error('Failed to send message:', error);
+        throw error;
+      }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       setMessage("");
       queryClient.invalidateQueries({ queryKey: ["/api/messages", userId] });
     },

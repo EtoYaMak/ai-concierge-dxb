@@ -39,6 +39,7 @@ export async function GET(req: NextRequest) {
 
 // POST /api/messages - Create a new message and get AI response
 export async function POST(req: NextRequest) {
+  console.time("total-request");
   try {
     const body = await req.json();
 
@@ -48,6 +49,8 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "user_id is required" }, { status: 400 });
     }
 
+    // Time the different stages
+    console.time("validate-message");
     // Validate the message structure
     let userMessage;
     try {
@@ -65,37 +68,50 @@ export async function POST(req: NextRequest) {
       }
       throw error;
     }
+    console.timeEnd("validate-message");
 
     // Store user message
+    console.time("store-user-message");
     const savedUserMessage = await storage.createMessage(userMessage);
+    console.timeEnd("store-user-message");
 
-    // Generate embeddings for the query
-    const queryEmbeddings = await generateEmbeddings(userMessage.content);
+    // Process in parallel - both embedding generation and message history
+    console.time("parallel-processing");
+    const [queryEmbeddings, messageHistory] = await Promise.all([
+      generateEmbeddings(userMessage.content),
+      storage.getMessages(user_id),
+    ]);
+    console.timeEnd("parallel-processing");
 
     // Find relevant tourist data
+    console.time("find-similar");
     const relevantData = await vectorStore.findSimilar(queryEmbeddings);
-
-    // Get chat history
-    const messageHistory = await storage.getMessages(user_id);
+    console.timeEnd("find-similar");
 
     // Generate AI response
+    console.time("generate-response");
     const aiResponse = await generateResponse(
       messageHistory.map((m) => ({ role: m.role, content: m.content })),
       relevantData
     );
+    console.timeEnd("generate-response");
 
     // Store AI response
+    console.time("store-ai-message");
     const savedAiMessage = await storage.createMessage({
       content: aiResponse,
       role: "assistant",
       user_id,
     });
+    console.timeEnd("store-ai-message");
 
+    console.timeEnd("total-request");
     return Response.json({
       userMessage: savedUserMessage,
       aiMessage: savedAiMessage,
     });
   } catch (error) {
+    console.timeEnd("total-request");
     console.error("Error processing message:", error);
     return Response.json(
       { error: "Failed to process message" },

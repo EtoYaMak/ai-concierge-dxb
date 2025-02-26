@@ -2,7 +2,7 @@ import { initializeApp } from "../init";
 
 export const runtime = "edge";
 
-export async function GET(req: Request) {
+export async function GET(_req: Request) {
   try {
     // Check if vector store is initialized
     const isInitialized = await initializeApp();

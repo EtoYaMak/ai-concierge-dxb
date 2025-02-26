@@ -21,12 +21,12 @@ export async function POST(req: Request) {
     }
 
     // Store user message
-    const userMessage = await storage.createMessage({
+    /*   const userMessage = await storage.createMessage({
       content,
       role: "user",
       user_id,
     });
-
+    */
     // Get message history and embeddings in parallel
     const [queryEmbeddings, messageHistory] = await Promise.all([
       generateEmbeddings(content),

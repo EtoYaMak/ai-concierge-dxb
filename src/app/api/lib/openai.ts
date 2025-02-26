@@ -12,7 +12,6 @@ export const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 // You can switch back to gpt-4o if responses are still not high quality enough
 const CHAT_MODEL = "gpt-4o-mini";
 
-const responseCache = new NodeCache({ stdTTL: 3600, checkperiod: 600 }); // 1 hour cache
 const embeddingCache = new NodeCache({ stdTTL: 86400, checkperiod: 3600 }); // 24 hour cache
 
 export async function generateResponse(

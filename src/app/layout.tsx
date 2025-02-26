@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect } from "react";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -20,30 +23,39 @@ export const metadata: Metadata = {
   description: "Your personal guide to Dubai's finest experiences",
 };
 
+function AppInitializer() {
+  useEffect(() => {
+    initializeApp()
+      .then((success) => {
+        if (success) {
+          console.log("App initialized successfully");
+        } else {
+          console.warn("App initialization had some issues");
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to initialize app:", error);
+      });
+  }, []);
+
+  return null;
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  initializeApp()
-    .then((success) => {
-      if (success) {
-        console.log("App initialized successfully");
-      } else {
-        console.warn("App initialization had some issues");
-      }
-    })
-    .catch((error) => {
-      console.error("Failed to initialize app:", error);
-    });
-
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ReactQueryProvider>
-          <ToastProvider>{children}</ToastProvider>
+          <ToastProvider>
+            <AppInitializer />
+            {children}
+          </ToastProvider>
         </ReactQueryProvider>
       </body>
     </html>

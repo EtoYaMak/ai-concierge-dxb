@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { insertMessageSchema } from "@/shared/schema";
 import { db } from "@/lib/db";
 import { eq } from "drizzle-orm";
@@ -14,21 +14,20 @@ export async function GET(req: NextRequest) {
   const userId = url.searchParams.get("user_id");
 
   if (!userId) {
-    return NextResponse.json({ error: "User ID is required" }, { status: 400 });
+    return Response.json({ error: "User ID is required" }, { status: 400 });
   }
 
   try {
-    // Force a direct query to bypass any potential issues in the storage layer
     const result = await db
       .select()
       .from(messages)
       .where(eq(messages.user_id, userId))
       .orderBy(messages.timestamp);
 
-    return NextResponse.json(result);
+    return Response.json(result);
   } catch (error) {
     console.error("Database error:", error);
-    return NextResponse.json(
+    return Response.json(
       { error: "Failed to fetch messages" },
       { status: 500 }
     );
@@ -38,41 +37,31 @@ export async function GET(req: NextRequest) {
 // POST /api/messages - Create a new message and get AI response
 export async function POST(req: NextRequest) {
   try {
-    console.log("API request received:", {
-      headers: Object.fromEntries(req.headers.entries()),
-      url: req.url,
-      method: req.method,
-    });
-
-    // Changed to handle the request body more safely for Vercel environment
-    let body;
-    try {
-      body = await req.json();
-    } catch (error) {
-      console.error("Error parsing JSON body:", error);
-      return NextResponse.json(
-        { error: "Invalid JSON in request body" },
-        { status: 400 }
-      );
-    }
-
-    console.log("Request body:", body);
+    const body = await req.json();
 
     const { content, user_id } = body || {};
 
     if (!user_id) {
-      return NextResponse.json(
-        { error: "user_id is required" },
-        { status: 400 }
-      );
+      return Response.json({ error: "user_id is required" }, { status: 400 });
     }
 
     // Validate the message structure
-    const userMessage = insertMessageSchema.parse({
-      content,
-      role: "user",
-      user_id,
-    });
+    let userMessage;
+    try {
+      userMessage = insertMessageSchema.parse({
+        content,
+        role: "user",
+        user_id,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return Response.json(
+          { error: "Invalid message format", details: error.errors },
+          { status: 400 }
+        );
+      }
+      throw error;
+    }
 
     // Store user message
     const savedUserMessage = await storage.createMessage(userMessage);
@@ -99,23 +88,16 @@ export async function POST(req: NextRequest) {
       user_id,
     });
 
-    return NextResponse.json({
+    return Response.json({
       userMessage: savedUserMessage,
       aiMessage: savedAiMessage,
     });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: "Invalid message format", details: error.errors },
-        { status: 400 }
-      );
-    } else {
-      console.error("Error processing message:", error);
-      return NextResponse.json(
-        { error: "Failed to process message" },
-        { status: 500 }
-      );
-    }
+    console.error("Error processing message:", error);
+    return Response.json(
+      { error: "Failed to process message" },
+      { status: 500 }
+    );
   }
 }
 
@@ -125,17 +107,15 @@ export async function DELETE(req: NextRequest) {
   const userId = url.searchParams.get("user_id");
 
   if (!userId) {
-    return NextResponse.json({ error: "User ID is required" }, { status: 400 });
+    return Response.json({ error: "User ID is required" }, { status: 400 });
   }
 
   try {
-    // Delete all messages for the user
     await db.delete(messages).where(eq(messages.user_id, userId)).execute();
-
-    return NextResponse.json({ message: "Messages deleted successfully" });
+    return Response.json({ message: "Messages deleted successfully" });
   } catch (error) {
     console.error("Error deleting messages:", error);
-    return NextResponse.json(
+    return Response.json(
       { error: "Failed to delete messages" },
       { status: 500 }
     );

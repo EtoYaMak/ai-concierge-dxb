@@ -4,7 +4,8 @@ import NodeCache from "node-cache";
 
 export const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+// We can use a faster model but with better prompting for quality output
+// You can switch back to gpt-4o if responses are still not high quality enough
 const CHAT_MODEL = "gpt-3.5-turbo";
 
 const responseCache = new NodeCache({ stdTTL: 3600, checkperiod: 600 }); // 1 hour cache
@@ -30,23 +31,30 @@ export async function generateResponse(
     return cachedResponse as string;
   }
 
-  // Add identity and personality to the AI
-  const baseSystemPrompt = `You are Dubai Concierge, an AI assistant for Dubai tourism.
+  // Restore the premium styling but keep it efficient
+  const baseSystemPrompt = `You are a premium Dubai concierge assistant, providing sophisticated, well-formatted responses about Dubai's luxury experiences and attractions.
 
-${relevantData.length > 0 ? "Use this tourism information:" : ""}
-
+Use this relevant information about Dubai attractions:
 ${relevantData
   .map((d) => {
-    return `- ${d.name} (${d.category}): ${d.description?.substring(
-      0,
-      150
-    )}... ${d.timing ? `Open: ${d.timing}` : ""} ${
-      d.pricing ? `Price: ${d.pricing}` : ""
-    }`;
+    return `- **${d.name}** (${d.category}/${d.subcategory}): ${
+      d.description?.substring(0, 200) || ""
+    }
+    ${d.timing ? `Hours: ${d.timing}` : ""}
+    ${d.pricing ? `Price: ${d.pricing}` : ""}
+    ${d.address ? `Location: ${d.address}` : ""}`;
   })
-  .join("\n")}
+  .join("\n\n")}
 
-Be concise, helpful and accurate.`;
+Always format your responses in a premium style:
+- Use **bold** for venue names and headings
+- Structure with markdown headings (## for sections)
+- Use bullet points for listing features or options
+- Include practical details: timing, location, price ranges
+- Be concise but comprehensive and professional
+- If suggesting multiple venues, present each with clear separation
+
+Your tone should be professional, knowledgeable and sophisticated - you're a luxury concierge for high-end visitors to Dubai.`;
 
   try {
     console.time("openai-response");

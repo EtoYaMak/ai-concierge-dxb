@@ -49,15 +49,19 @@ export class VectorStore {
 
   async findSimilar(
     queryEmbeddings: number[],
-    limit: number = 5
+    limit: number = 20,
+    category?: string,
+    subcategory?: string
   ): Promise<Activity[]> {
     if (!this.initialized) {
       console.warn("VectorStore: Not initialized");
       return [];
     }
 
-    // Create a cache key from the query embedding (first few dimensions)
-    const cacheKey = queryEmbeddings.slice(0, 20).join(",");
+    // Create a cache key that includes category/subcategory if provided
+    const cacheKey = `${queryEmbeddings.slice(0, 20).join(",")}|cat:${
+      category || ""
+    }|subcat:${subcategory || ""}`;
 
     // Check if we have cached results
     if (this.similarityCache.has(cacheKey)) {
@@ -66,16 +70,123 @@ export class VectorStore {
     }
 
     const startTime = performance.now();
+    console.log("Executing vector search query with category filtering");
 
-    // Log the query being executed
-    console.log("Executing vector search query");
+    // Define timerLabel outside the try block so it's available in the catch block
+    const timerLabel = `db-connection-${Date.now()}`;
 
     try {
       console.time("format-vector");
       const vectorString = `[${queryEmbeddings.join(",")}]`;
       console.timeEnd("format-vector");
 
-      console.time("db-connection");
+      console.time(timerLabel);
+
+      // If category and subcategory are provided, prioritize exact matches first
+      if (category && subcategory) {
+        // First try exact category + subcategory match
+        const exactMatches = await db.execute(
+          sql`
+            SELECT *,
+            embedding_vector <=> ${vectorString}::vector AS distance
+            FROM activities
+            WHERE category = ${category} AND subcategory = ${subcategory}
+            ORDER BY embedding_vector <=> ${vectorString}::vector
+            LIMIT ${limit * 2}
+          `
+        );
+
+        // If we have matches, return them without the strict minimum threshold
+        if (exactMatches.rows.length > 0) {
+          console.log(
+            `Found ${exactMatches.rows.length} exact category+subcategory matches`
+          );
+          const results = exactMatches.rows as (Activity & {
+            distance: number;
+          })[];
+          this.cacheResults(cacheKey, results);
+          return results;
+        }
+
+        // If not enough exact matches, try category only
+        const categoryMatches = await db.execute(
+          sql`
+            SELECT *,
+            embedding_vector <=> ${vectorString}::vector AS distance
+            FROM activities
+            WHERE category = ${category}
+            ORDER BY embedding_vector <=> ${vectorString}::vector
+            LIMIT ${limit}
+          `
+        );
+
+        if (categoryMatches.rows.length > 0) {
+          console.log(`Found ${categoryMatches.rows.length} category matches`);
+          const results = categoryMatches.rows as (Activity & {
+            distance: number;
+          })[];
+          this.cacheResults(cacheKey, results);
+          return results;
+        }
+      }
+      // If only category is provided
+      else if (category) {
+        try {
+          const categoryMatches = await db.execute(
+            sql`
+              SELECT *
+              FROM activities
+              WHERE category = ${category}
+              ${subcategory ? sql`AND subcategory = ${subcategory}` : sql``}
+              LIMIT 50
+            `
+          );
+
+          if (categoryMatches.rows.length > 0) {
+            console.log(
+              `Found ${categoryMatches.rows.length} category matches`
+            );
+            return categoryMatches.rows as Activity[];
+          }
+        } catch (error) {
+          console.error("Error during category search:", error);
+        }
+      }
+
+      // For subcategory searches, use case-insensitive comparison
+      if (subcategory) {
+        try {
+          console.log(
+            `Searching for subcategory: "${subcategory}" in category: "${
+              category || "any"
+            }"`
+          );
+
+          const subcategoryMatches = await db.execute(
+            sql`
+              SELECT *
+              FROM activities
+              WHERE LOWER(subcategory) = LOWER(${subcategory})
+              ${
+                category ? sql`AND LOWER(category) = LOWER(${category})` : sql``
+              }
+              LIMIT 50
+            `
+          );
+
+          console.log(
+            `Found ${subcategoryMatches.rows.length} subcategory matches`
+          );
+
+          if (subcategoryMatches.rows.length > 0) {
+            return subcategoryMatches.rows as Activity[];
+          }
+        } catch (error) {
+          console.error("Error during subcategory search:", error);
+        }
+      }
+
+      // Fall back to standard vector search if no category/subcategory matches or none specified
       const queryResult = await db.execute(
         sql`
           SELECT *,
@@ -85,7 +196,7 @@ export class VectorStore {
           LIMIT ${limit}
         `
       );
-      console.timeEnd("db-connection");
+      console.timeEnd(timerLabel);
 
       const endTime = performance.now();
       console.log(`Vector search completed in ${endTime - startTime}ms`);
@@ -93,23 +204,17 @@ export class VectorStore {
         `Found ${queryResult.rows.length} activities via vector search`
       );
 
-      // Extract rows from the query result
       const results = queryResult.rows as (Activity & { distance: number })[];
-
-      // Filter out results with low relevance (high distance)
-      // Cosine distance above 0.3 typically indicates low relevance
       const relevantResults = results.filter((r) => r.distance < 0.3);
 
-      // For debugging
       console.log(
         `Vector search found ${results.length} results, filtered to ${relevantResults.length} relevant ones`
       );
-
-      // Cache the filtered results
       this.cacheResults(cacheKey, relevantResults);
-
       return relevantResults;
     } catch (error) {
+      // Now timerLabel is in scope
+      console.timeEnd(timerLabel);
       console.error("Vector search error:", error);
       return [];
     }

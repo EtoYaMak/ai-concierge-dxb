@@ -152,14 +152,14 @@ export default function ChatInput({ userId }: ChatInputProps) {
       <Textarea
         value={message}
         onChange={(e) => setMessage(e.target.value)}
-        placeholder="Ask about tourist attractions..."
+        placeholder="Ask about any activities or events..."
         className="min-h-[60px] resize-none"
         disabled={isLoading}
       />
       <Button
         type="submit"
         disabled={isLoading || !message.trim() || !userId}
-        className="px-8 min-h-[60px]"
+        className="px-8 min-h-[62px] w-24"
       >
         {isLoading ? (
           <Loader2 className="h-4 w-4 animate-spin" />

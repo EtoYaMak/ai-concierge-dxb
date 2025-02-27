@@ -7,6 +7,7 @@ import { ReactQueryProvider } from "@/components/providers/ReactQueryProvider";
 import { AppInitializer } from "@/components/AppInitializer";
 import { initializeApp } from '@/app/api/init';
 import { ChatProvider } from "@/context/chat-context";
+import { ThemeProvider } from "@/components/theme-provider"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,18 +38,25 @@ export default async function RootLayout({
   }
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ReactQueryProvider>
-          <ToastProvider>
-            <ChatProvider>
-              <AppInitializer />
-              {children}
-            </ChatProvider>
-          </ToastProvider>
-        </ReactQueryProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <ReactQueryProvider>
+            <ToastProvider>
+              <ChatProvider>
+                <AppInitializer />
+                {children}
+              </ChatProvider>
+            </ToastProvider>
+          </ReactQueryProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

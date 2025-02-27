@@ -9,36 +9,37 @@ import remarkGfm from "remark-gfm";
 
 interface MessageItemProps {
   message: Message;
+  userId: string;
 }
 
-export default function MessageItem({ message }: MessageItemProps) {
+export default function MessageItem({ message, userId }: MessageItemProps) {
   const isBot = message.role === "assistant";
 
   return (
     <div
       className={cn(
-        "flex gap-3 rounded-lg p-4",
-        isBot ? "bg-muted/50 border border-border/50" : "bg-primary/5"
+        "flex gap-3 rounded-lg px-4 py-3",
+        isBot ? "bg-primary/5 border border-primary/50" : "bg-muted/50"
       )}
     >
       <div
         className={cn(
-          "h-8 w-8 rounded-full flex items-center justify-center shrink-0",
+          "h-10 w-10 rounded-full flex items-center justify-center shrink-0",
           isBot ? "bg-primary" : "bg-primary/20"
         )}
       >
         {isBot ? (
-          <Bot className="h-4 w-4 text-primary-foreground" />
+          <Bot className="h-6 w-6 text-primary-foreground" />
         ) : (
-          <User className="h-4 w-4 text-primary" />
+          <User className="h-6 w-6 text-primary" />
         )}
       </div>
 
       <div className="flex-1">
         <div className="font-medium text-sm">
-          {isBot ? "Dubai Concierge" : "You"}
+          {isBot ? "Concierge" : `${userId}`}
         </div>
-        <div className="markdown [&>hr]:my-2 [&>p]:my-1 [&>h2]:mb-1 [&>h2]:mt-2 [&>h3]:mb-1 [&>h3]:mt-2 [&>ul]:my-1 [&>li]:my-0.5">
+        <div className="markdown [&>hr]:my-2 [&>p]:my-2 [&>h2]:mb-1 [&>h2]:mt-2 [&>h3]:mb-1 [&>h3]:mt-2 [&>ul]:my-1 [&>li]:my-0.5">
           {message.isStreaming && message.content === "" ? (
             <TypingIndicator />
           ) : (
@@ -49,6 +50,7 @@ export default function MessageItem({ message }: MessageItemProps) {
                 hr: () => <hr className="my-2" />,
                 h2: ({ children }) => <h2 className="font-bold text-lg mt-2 mb-1">{children}</h2>,
                 h3: ({ children }) => <h3 className="font-bold text-md mt-2 mb-1">{children}</h3>,
+                ul: ({ children }) => <ul className="my-1 list-none pl-5">{children}</ul>,
               }}
             >
               {message.content}

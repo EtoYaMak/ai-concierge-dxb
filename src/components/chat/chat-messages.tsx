@@ -58,7 +58,7 @@ export default function ChatMessages({ userId }: ChatMessagesProps) {
         </div>
       ) : (
         messages.map((message) => (
-          <MessageItem key={message.id} message={message} />
+          <MessageItem key={message.id} message={message} userId={userId} />
         ))
       )}
     </div>

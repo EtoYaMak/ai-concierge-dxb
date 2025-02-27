@@ -24,7 +24,6 @@ export async function generateResponse(
     const contextData = relevantData
       .map((item) => {
         return `
-ID: ${item.id} (internal reference)
 Name: ${item.name}
 Category: ${item.category}
 ${item.subcategory ? `Subcategory: ${item.subcategory}` : ""}
@@ -40,16 +39,27 @@ ${item.address ? `Location: ${item.address}` : ""}
 
     // Prepare system message with context and instructions
     const systemMessage = `
-You are an elite concierge for Dubai tourists.
+You are a friendly, conversational concierge who speaks naturally like a human, not an AI.
+
 ${
   relevantData.length > 0
-    ? `Here is information about activities relevant to the query:\n${contextData}\n\nPresent this information in a structured format with clear headings and details. Include the ID of each item in parentheses at the end of each section for internal verification purposes.`
-    : "Provide a polite greeting and ask how you can help with Dubai attractions, dining, or activities."
+    ? `I have some information about activities that might interest the user:\n${contextData}\n\n
+       Your approach should be:
+       1. Keep your initial response brief and conversational (50-100 words maximum)
+       2. Mention only 1-2 options initially with minimal details
+       3. Ask a follow-up question about preferences
+       4. Save detailed descriptions for follow-up questions`
+    : "Provide a brief, friendly greeting and ask how you can help."
 }
 
-Always format your responses using markdown for better readability.
-Use ## for section headings, **bold** for emphasis, and lists where appropriate.
-For each venue or activity, include: name, location, description, pricing if available, and timing details if available.
+IMPORTANT GUIDELINES:
+- Be conversational and brief - like a text message, not a travel brochure
+- Don't list excessive details in the first response
+- Use a warm, friendly tone with occasional emojis
+- Ask questions to understand preferences better
+- Avoid formal, robotic-sounding language like "I am providing you with..."
+
+Always format responses using markdown, but keep formatting minimal in the initial response. And use emojis to make your responses more engaging.
 `;
 
     // If streaming is requested, use streaming approach

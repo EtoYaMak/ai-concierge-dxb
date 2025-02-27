@@ -8,7 +8,8 @@ import ChatMessages from "@/components/chat/chat-messages";
 import ChatInput from "@/components/chat/chat-input";
 import { UserIdentifier } from "@/components/UserIdentifier";
 import { Button } from "@/components/ui/button";
-
+import { ModeToggle } from "@/components/ui/theme-toggle";
+import { LogOut } from "lucide-react";
 export default function Home() {
   const [userId, setUserId] = useState<string | null>(null);
   const router = useRouter();
@@ -38,39 +39,43 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-700 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-t from-primary/30 to-primary/20 flex items-center justify-center p-4">
       <UserIdentifier onUserIdSet={setUserId} />
-      <Card className="w-full max-w-4xl h-[94vh] flex flex-col rounded-lg">
+      <Card className="w-full max-w-4xl h-[94vh] flex flex-col rounded-lg ">
         <div className="px-6 py-2 border-b bg-card rounded-lg">
           <span className="flex items-center justify-between">
             <h1 className="text-lg font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-              AI Concierge
+              Concierge
             </h1>
             {userId && (
-              <span className="text-base font-bold">
-                #{userId} <br />
-                <Button
-                  className="text-white text-base font-bold"
-                  onClick={handleLogout}
-                >
-                  Logout
-                </Button>
+              <span className="text-base font-bold flex justify-center items-center gap-2">
+                #{userId}
               </span>
             )}
-          </span>
+            <span className="flex justify-center items-center gap-2">
+              <ModeToggle />
 
-          <p className="text-muted-foreground text-sm">
-            Your personal guide to Dubai&apos;s finest experiences
-          </p>
+              {userId && (
+                <span className="text-base font-bold flex justify-center items-center gap-2">
+                  <Button
+                    className="text-white text-base font-bold"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </Button>
+                </span>
+              )}
+            </span>
+          </span>
         </div>
 
-        <ScrollArea className="flex-1 px-6 py-0">
+        <ScrollArea className="flex-1 px-4 py-0">
           <div className="max-w-[95%] mx-auto py-2">
             <ChatMessages userId={userId} />
           </div>
         </ScrollArea>
 
-        <div className="px-6 py-2 border-t bg-card/50 rounded-b-lg">
+        <div className="px-4 py-2 border-t bg-card/50 rounded-b-lg">
           <ChatInput userId={userId} />
         </div>
       </Card>

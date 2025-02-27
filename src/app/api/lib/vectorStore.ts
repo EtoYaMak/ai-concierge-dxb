@@ -78,7 +78,8 @@ export class VectorStore {
       console.time("db-connection");
       const queryResult = await db.execute(
         sql`
-          SELECT *
+          SELECT *,
+          embedding_vector <=> ${vectorString}::vector AS distance
           FROM activities
           ORDER BY embedding_vector <=> ${vectorString}::vector
           LIMIT ${limit}
@@ -93,12 +94,21 @@ export class VectorStore {
       );
 
       // Extract rows from the query result
-      const results = queryResult.rows as Activity[];
+      const results = queryResult.rows as (Activity & { distance: number })[];
 
-      // Cache the results
-      this.cacheResults(cacheKey, results);
+      // Filter out results with low relevance (high distance)
+      // Cosine distance above 0.3 typically indicates low relevance
+      const relevantResults = results.filter((r) => r.distance < 0.3);
 
-      return results;
+      // For debugging
+      console.log(
+        `Vector search found ${results.length} results, filtered to ${relevantResults.length} relevant ones`
+      );
+
+      // Cache the filtered results
+      this.cacheResults(cacheKey, relevantResults);
+
+      return relevantResults;
     } catch (error) {
       console.error("Vector search error:", error);
       return [];

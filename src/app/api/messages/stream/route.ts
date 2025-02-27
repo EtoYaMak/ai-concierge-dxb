@@ -21,17 +21,23 @@ export async function POST(req: Request) {
     }
 
     // Store user message
-    /*   const userMessage = await storage.createMessage({
+    await storage.createMessage({
       content,
       role: "user",
       user_id,
     });
-    */
+
     // Get message history and embeddings in parallel
     const [queryEmbeddings, messageHistory] = await Promise.all([
       generateEmbeddings(content),
       storage.getMessages(user_id, { limit: 10 }),
     ]);
+
+    // Add a log to verify message order
+    console.log(
+      "Last message role:",
+      messageHistory[messageHistory.length - 1]?.role
+    );
 
     // Find similar activities
     const relevantData = await vectorStore.findSimilar(queryEmbeddings);

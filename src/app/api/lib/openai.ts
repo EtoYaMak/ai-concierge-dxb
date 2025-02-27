@@ -10,7 +10,7 @@ export const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // We can use a faster model but with better prompting for quality output
 // You can switch back to gpt-4o if responses are still not high quality enough
-const CHAT_MODEL = "gpt-4o-mini";
+const CHAT_MODEL = "gpt-4o";
 
 const embeddingCache = new NodeCache({ stdTTL: 86400, checkperiod: 3600 }); // 24 hour cache
 
@@ -24,28 +24,32 @@ export async function generateResponse(
     const contextData = relevantData
       .map((item) => {
         return `
+ID: ${item.id} (internal reference)
 Name: ${item.name}
 Category: ${item.category}
-${item.information ? `Information: ${item.information}` : ""}
+${item.subcategory ? `Subcategory: ${item.subcategory}` : ""}
+${item.description ? `Description: ${item.description}` : ""}
+${item.information ? `Details: ${item.information}` : ""}
 ${item.timing ? `Timing: ${item.timing}` : ""}
-${item.address ? `Address: ${item.address}` : ""}
+${item.pricing ? `Pricing: ${item.pricing}` : ""}
+${item.booking_type ? `Booking: ${item.booking_type}` : ""}
+${item.address ? `Location: ${item.address}` : ""}
 `;
       })
       .join("\n");
 
     // Prepare system message with context and instructions
     const systemMessage = `
-You are a helpful AI concierge for tourists in Dubai. Use the following relevant information to answer the user's query:
+You are an elite concierge for Dubai tourists.
+${
+  relevantData.length > 0
+    ? `Here is information about activities relevant to the query:\n${contextData}\n\nPresent this information in a structured format with clear headings and details. Include the ID of each item in parentheses at the end of each section for internal verification purposes.`
+    : "Provide a polite greeting and ask how you can help with Dubai attractions, dining, or activities."
+}
 
-${contextData}
-
-Always be polite and helpful. If you don't know something, acknowledge it and suggest alternatives.
-
-Format your responses using markdown for better readability:
-- Use ## for section headers
-- Use **bold** for emphasis and key points
-- Use bullet points and numbered lists where appropriate
-- Use > for important notes or quotes
+Always format your responses using markdown for better readability.
+Use ## for section headings, **bold** for emphasis, and lists where appropriate.
+For each venue or activity, include: name, location, description, pricing if available, and timing details if available.
 `;
 
     // If streaming is requested, use streaming approach

@@ -5,6 +5,7 @@ import { Bot, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { TypingIndicator } from "@/components/chat/typing-indicator";
+import remarkGfm from "remark-gfm";
 
 interface MessageItemProps {
   message: Message;
@@ -33,18 +34,26 @@ export default function MessageItem({ message }: MessageItemProps) {
         )}
       </div>
 
-      <div className="flex-1 space-y-1.5">
+      <div className="flex-1">
         <div className="font-medium text-sm">
           {isBot ? "Dubai Concierge" : "You"}
         </div>
-        <div className="prose prose-sm dark:prose-invert max-w-none [&>p:last-child]:mb-0">
-          <div className="whitespace-pre-wrap">
-            {message.isStreaming && message.content === "" ? (
-              <TypingIndicator />
-            ) : (
-              <ReactMarkdown>{message.content}</ReactMarkdown>
-            )}
-          </div>
+        <div className="markdown [&>hr]:my-2 [&>p]:my-1 [&>h2]:mb-1 [&>h2]:mt-2 [&>h3]:mb-1 [&>h3]:mt-2 [&>ul]:my-1 [&>li]:my-0.5">
+          {message.isStreaming && message.content === "" ? (
+            <TypingIndicator />
+          ) : (
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                p: ({ children }) => <p className="my-1">{children}</p>,
+                hr: () => <hr className="my-2" />,
+                h2: ({ children }) => <h2 className="font-bold text-lg mt-2 mb-1">{children}</h2>,
+                h3: ({ children }) => <h3 className="font-bold text-md mt-2 mb-1">{children}</h3>,
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
+          )}
         </div>
       </div>
     </div>

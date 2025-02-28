@@ -42,8 +42,8 @@ export default function MessageItem({ message, userId }: MessageItemProps) {
         </div>
       </span>
       <div className="flex-1">
-        <div className="font-medium text-sm hidden sm:block">
-          {isBot ? "Concierge" : `${userId}`}
+        <div className="font-medium text-sm hidden sm:block capitalize">
+          {isBot ? "Concierge" : `${userId.split("@")[0]}`}
         </div>
         <div className="markdown [&>hr]:my-2 [&>p]:my-2 [&>h2]:mb-1 [&>h2]:mt-2 [&>h3]:mb-1 [&>h3]:mt-2 [&>ul]:my-1 [&>li]:my-0.5">
           {message.isStreaming && message.content === "" ? (

@@ -18,25 +18,31 @@ export default function MessageItem({ message, userId }: MessageItemProps) {
   return (
     <div
       className={cn(
-        "flex gap-3 rounded-lg px-4 py-3",
+        "flex sm:flex-row flex-col sm:gap-3 gap-0 rounded-lg px-4 pb-1 pt-3 sm:py-3",
         isBot ? "bg-primary/5 border border-primary/50" : "bg-muted/50"
       )}
     >
-      <div
-        className={cn(
-          "h-10 w-10 rounded-full flex items-center justify-center shrink-0",
-          isBot ? "bg-primary" : "bg-primary/20"
-        )}
-      >
-        {isBot ? (
-          <Bot className="h-6 w-6 text-primary-foreground" />
-        ) : (
-          <User className="h-6 w-6 text-primary" />
-        )}
-      </div>
+      <span className="flex items-center sm:items-start gap-2">
+        <div
+          className={cn(
+            "h-10 w-10 rounded-full flex items-center justify-center shrink-0",
+            isBot ? "bg-primary" : "bg-primary/20"
+          )}
+        >
+          {isBot ? (
+            <Bot className="h-6 w-6 text-primary-foreground" />
+          ) : (
+            <User className="h-6 w-6 text-primary" />
+          )}
 
+
+        </div>
+        <div className="font-medium text-sm block sm:hidden">
+          {isBot ? "Concierge" : `${userId}`}
+        </div>
+      </span>
       <div className="flex-1">
-        <div className="font-medium text-sm">
+        <div className="font-medium text-sm hidden sm:block">
           {isBot ? "Concierge" : `${userId}`}
         </div>
         <div className="markdown [&>hr]:my-2 [&>p]:my-2 [&>h2]:mb-1 [&>h2]:mt-2 [&>h3]:mb-1 [&>h3]:mt-2 [&>ul]:my-1 [&>li]:my-0.5">
@@ -50,7 +56,7 @@ export default function MessageItem({ message, userId }: MessageItemProps) {
                 hr: () => <hr className="my-2" />,
                 h2: ({ children }) => <h2 className="font-bold text-lg mt-2 mb-1">{children}</h2>,
                 h3: ({ children }) => <h3 className="font-bold text-md mt-2 mb-1">{children}</h3>,
-                ul: ({ children }) => <ul className="my-1 list-none pl-5">{children}</ul>,
+                ul: ({ children }) => <ul className="my-1 list-none pl-2 sm:pl-5">{children}</ul>,
               }}
             >
               {message.content}

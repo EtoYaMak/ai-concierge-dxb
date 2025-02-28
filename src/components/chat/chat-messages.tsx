@@ -107,7 +107,7 @@ export default function ChatMessages({ userId }: ChatMessagesProps) {
   // Use context messages for rendering
   return (
     <div className="relative" ref={containerRef}>
-      <div className="space-y-4 py-5">
+      <div className="space-y-2 sm:space-y-4 py-5">
         {messages.length === 0 ? (
           <div className="text-center text-muted-foreground py-8">
             No messages yet. Start the conversation!

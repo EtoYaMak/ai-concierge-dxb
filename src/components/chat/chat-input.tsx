@@ -148,7 +148,7 @@ export default function ChatInput({ userId }: ChatInputProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex gap-2">
+    <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
       <Textarea
         value={message}
         onChange={(e) => setMessage(e.target.value)}
@@ -159,7 +159,7 @@ export default function ChatInput({ userId }: ChatInputProps) {
       <Button
         type="submit"
         disabled={isLoading || !message.trim() || !userId}
-        className="px-8 min-h-[62px] w-24"
+        className="px-4 sm:px-8 h-10 sm:min-h-[62px] w-full sm:w-24"
       >
         {isLoading ? (
           <Loader2 className="h-4 w-4 animate-spin" />

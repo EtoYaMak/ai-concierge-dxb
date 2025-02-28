@@ -153,11 +153,11 @@ export class VectorStore {
         }
       }
 
-      // For subcategory searches, use case-insensitive comparison
+      // If subcategory searches, use LIKE pattern matching instead of exact equality
       if (subcategory) {
         try {
           console.log(
-            `Searching for subcategory: "${subcategory}" in category: "${
+            `Searching for subcategory similar to: "${subcategory}" in category: "${
               category || "any"
             }"`
           );
@@ -166,23 +166,30 @@ export class VectorStore {
             sql`
               SELECT *
               FROM activities
-              WHERE LOWER(subcategory) = LOWER(${subcategory})
+              WHERE 
+                (LOWER(subcategory) LIKE LOWER(${"%" + subcategory + "%"})
+                 OR LOWER(subcategory) SIMILAR TO LOWER(${this.convertToPatternMatch(
+                   subcategory
+                 )}))
               ${
-                category ? sql`AND LOWER(category) = LOWER(${category})` : sql``
+                category
+                  ? sql`AND (LOWER(category) = LOWER(${category}) 
+                      OR LOWER(category) LIKE LOWER(${"%" + category + "%"}))`
+                  : sql``
               }
               LIMIT 50
             `
           );
 
           console.log(
-            `Found ${subcategoryMatches.rows.length} subcategory matches`
+            `Found ${subcategoryMatches.rows.length} fuzzy subcategory matches`
           );
 
           if (subcategoryMatches.rows.length > 0) {
             return subcategoryMatches.rows as Activity[];
           }
         } catch (error) {
-          console.error("Error during subcategory search:", error);
+          console.error("Error during subcategory fuzzy search:", error);
         }
       }
 
@@ -238,6 +245,18 @@ export class VectorStore {
 
   setInitialized(value: boolean): void {
     this.initialized = value;
+  }
+
+  // Helper function to convert search terms to pattern matching
+  private convertToPatternMatch(term: string): string {
+    // Split the term into words
+    const words = term.split(/\s+/).filter((w) => w.length > 2);
+
+    // Create patterns that match words in any order
+    if (words.length > 1) {
+      return "(" + words.map((word) => `%${word}%`).join("|") + ")";
+    }
+    return `%${term}%`;
   }
 }
 

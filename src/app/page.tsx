@@ -25,7 +25,7 @@ export default function Home() {
         // Clear local storage and state
         localStorage.removeItem("chatUserId");
         setUserId(null);
-
+        window.location.reload();
         // Redirect to login page
         router.push("/login");
       } catch (error) {
@@ -49,7 +49,7 @@ export default function Home() {
             </h1>
             {userId && (
               <span className="text-sm sm:text-base font-bold flex justify-center items-center gap-2">
-                #{userId}
+                {userId.split('@')[0]}
               </span>
             )}
             <span className="flex justify-center items-center gap-2">

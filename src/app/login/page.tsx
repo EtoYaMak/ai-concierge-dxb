@@ -31,7 +31,7 @@ export default function LoginPage() {
             <Card className="w-full max-w-[90%] sm:max-w-md">
                 <CardHeader className="text-center py-4 sm:py-6">
                     <CardTitle className="text-lg sm:text-xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                        Dubai AI Concierge
+                        My Concierge
                     </CardTitle>
                     <CardDescription className="text-sm sm:text-base">
                         Your personal guide to Dubai&apos;s finest experiences
@@ -40,10 +40,10 @@ export default function LoginPage() {
                 <form onSubmit={handleLogin}>
                     <CardContent className="px-3 sm:px-6">
                         <div className="space-y-2">
-                            <Label htmlFor="userId">Enter your User ID</Label>
+                            <Label htmlFor="userId">Enter your Email</Label>
                             <Input
                                 id="userId"
-                                placeholder="user123"
+                                placeholder="user@example.com"
                                 value={userId}
                                 onChange={(e) => setUserId(e.target.value)}
                                 className="w-full"

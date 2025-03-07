@@ -56,6 +56,7 @@ IMPORTANT: When listing venues from a category, you MUST include EVERY venue fro
 
 IMPORTANT GUIDELINES:
 - When a user explicitly asks for a category (e.g., "Beach clubs to chill"), list ALL activities options names and a short description from the caterogy.
+- If best match is found, LIST ALL options from the category.
 - For category-specific searches, format your response as a well-organized list of options with key details
 - For general queries, keep responses brief and conversational
 - Strictly adhere to category hierarchies - don't recommend restaurants when users ask for beach clubs
@@ -65,7 +66,7 @@ IMPORTANT GUIDELINES:
 Always format responses using markdown, with clear organization for lists of venues.
 `;
     //  4. Mention only 1-2 options initially with minimal details
-    // If streaming is requested, use streaming approach
+    //// If streaming is requested, use streaming approach
     if (streamCallback) {
       const stream = await openai.chat.completions.create({
         model: CHAT_MODEL,

@@ -44,7 +44,6 @@ export async function POST(req: NextRequest) {
   console.time("total-request");
   try {
     const body = await req.json();
-
     const { content, user_id } = body || {};
 
     if (!user_id) {
@@ -409,27 +408,51 @@ export async function POST(req: NextRequest) {
     );
     console.timeEnd("find-similar");
 
-    // Generate AI response
+    // Create a streaming response
+    const encoder = new TextEncoder();
+    const stream = new TransformStream();
+    const writer = stream.writable.getWriter();
+
+    let fullResponse = "";
+
+    // Start streaming response generation
     console.time("generate-response");
-    const aiResponse = await generateResponse(
+    generateResponse(
       messageHistory.map((m) => ({ role: m.role, content: m.content })),
-      relevantData
-    );
-    console.timeEnd("generate-response");
+      relevantData,
+      async (chunk) => {
+        fullResponse += chunk;
+        await writer.write(encoder.encode(chunk));
+      }
+    )
+      .then(async () => {
+        // Store the complete response when done
+        console.time("store-ai-message");
+        await storage.createMessage({
+          content: fullResponse,
+          role: "assistant",
+          user_id,
+        });
+        console.timeEnd("store-ai-message");
+        console.timeEnd("generate-response");
+        console.timeEnd("total-request");
+        writer.close();
+      })
+      .catch(async (error) => {
+        console.error("Error in streaming response:", error);
+        await writer.write(
+          encoder.encode(
+            "\n\nSorry, an error occurred while generating the response."
+          )
+        );
+        writer.close();
+      });
 
-    // Store AI response
-    console.time("store-ai-message");
-    const savedAiMessage = await storage.createMessage({
-      content: aiResponse as string,
-      role: "assistant",
-      user_id,
-    });
-    console.timeEnd("store-ai-message");
-
-    console.timeEnd("total-request");
-    return Response.json({
-      userMessage: savedUserMessage,
-      aiMessage: savedAiMessage,
+    return new Response(stream.readable, {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Transfer-Encoding": "chunked",
+      },
     });
   } catch (error) {
     console.timeEnd("total-request");

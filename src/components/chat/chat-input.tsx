@@ -61,43 +61,56 @@ export default function ChatInput({ userId }: ChatInputProps) {
     },
   });
 
-  const sendStreamMessage = async (message: string) => {
-    if (!userId) return;
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!message.trim() || !userId) return;
+
+    // Get the message content and clear input immediately
+    const messageContent = message.trim();
+    setMessage("");
+
+    // Add user message to chat IMMEDIATELY
+    const messageId = Date.now();
+    const userMessageObj: Message = {
+      id: messageId,
+      content: messageContent,
+      role: "user",
+      user_id: userId,
+      timestamp: new Date(),
+    };
+
+    // Add typing indicator message IMMEDIATELY
+    const aiMessageObj: Message = {
+      id: messageId + 1,
+      content: "",
+      role: "assistant",
+      user_id: userId,
+      timestamp: new Date(Date.now() + 1),
+      isStreaming: true,
+    };
+
+    // Force immediate update to UI with both messages
+    addMessage(userMessageObj);
+    addMessage(aiMessageObj);
+
+    // THEN start the API call separately
+    fetchStreamResponse(messageContent, aiMessageObj);
+  };
+
+  // Separate function for the API call
+  const fetchStreamResponse = async (messageContent: string, aiMessageObj: Message) => {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/messages/stream", {
+      const response = await fetch("/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: message, user_id: userId }),
+        body: JSON.stringify({ content: messageContent, user_id: userId }),
       });
 
       if (!response.ok || !response.body) {
         throw new Error(`Error: ${response.statusText}`);
       }
-
-      const messageId = Date.now();
-
-      const userMessageObj: Message = {
-        id: messageId,
-        content: message,
-        role: "user",
-        user_id: userId,
-        timestamp: new Date(),
-      };
-
-      addMessage(userMessageObj);
-
-      const aiMessageObj: Message = {
-        id: messageId + 1,
-        content: "",
-        role: "assistant",
-        user_id: userId,
-        timestamp: new Date(),
-        isStreaming: true,
-      };
-
-      addMessage(aiMessageObj);
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -110,41 +123,36 @@ export default function ChatInput({ userId }: ChatInputProps) {
         const chunk = decoder.decode(value, { stream: true });
         partialResponse += chunk;
 
-        const updatedAiMessage = {
+        updateMessage({
           ...aiMessageObj,
           content: partialResponse,
-        };
-
-        updateMessage(updatedAiMessage);
-        setUpdateCounter(prev => prev + 1);
+        });
       }
 
-      const finalMessage = {
+      updateMessage({
         ...aiMessageObj,
         content: partialResponse,
         isStreaming: false,
-      };
-      updateMessage(finalMessage);
+      });
 
       queryClient.invalidateQueries({ queryKey: ["/api/messages", userId] });
-      setIsLoading(false);
     } catch (error) {
       console.error("Error sending message:", error);
+
+      updateMessage({
+        ...aiMessageObj,
+        content: "Sorry, I encountered an error. Please try again.",
+        isStreaming: false,
+      });
+
       toast({
         title: "Error",
         description: "Failed to send message. Please try again.",
         variant: "destructive",
       });
+    } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!message.trim() || !userId) return;
-
-    sendStreamMessage(message.trim());
-    setMessage("");
   };
 
   return (

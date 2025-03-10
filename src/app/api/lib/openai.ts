@@ -8,7 +8,6 @@ import {
 
 export const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// We can use a faster model but with better prompting for quality output
 // You can switch back to gpt-4o if responses are still not high quality enough
 const CHAT_MODEL = "gpt-4o";
 

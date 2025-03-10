@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Loader2, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Message } from "@/shared/schema";
 import { useChatContext } from "@/context/chat-context";
+import VoiceModal from "./voice-modal";
 
 interface ChatInputProps {
   userId: string | null;
@@ -19,48 +20,7 @@ export default function ChatInput({ userId }: ChatInputProps) {
   const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
   const { addMessage, updateMessage } = useChatContext();
-  const [updateCounter, setUpdateCounter] = useState(0);
-
-  const mutation = useMutation({
-    mutationFn: async (content: string) => {
-      try {
-        const response = await fetch('/api/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            content: content,
-            user_id: userId,
-          }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          console.error('API error:', errorData);
-          throw new Error(`API error: ${response.status}`);
-        }
-
-        const data = await response.json();
-        return data;
-      } catch (error) {
-        console.error('Failed to send message:', error);
-        throw error;
-      }
-    },
-    onSuccess: (data) => {
-      setMessage("");
-      queryClient.invalidateQueries({ queryKey: ["/api/messages", userId] });
-    },
-    onError: () => {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to send message. Please try again.",
-      });
-    },
-  });
-
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim() || !userId) return;
@@ -164,17 +124,26 @@ export default function ChatInput({ userId }: ChatInputProps) {
         className="min-h-[60px] resize-none"
         disabled={isLoading}
       />
-      <Button
-        type="submit"
-        disabled={isLoading || !message.trim() || !userId}
-        className="px-4 sm:px-8 h-10 sm:min-h-[62px] w-full sm:w-24"
-      >
-        {isLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          "Send"
-        )}
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          type="submit"
+          disabled={isLoading || !message.trim() || !userId}
+          className="px-4 sm:px-8 h-10 sm:min-h-[62px] w-full sm:w-24"
+        >
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            "Send"
+          )}
+        </Button>
+        <Button
+          onClick={() => setShowVoiceModal(true)}
+          className="px-4 sm:px-8 h-10 sm:min-h-[62px] w-full sm:w-24"
+        >
+          <Mic className="h-4 w-4" />
+        </Button>
+      </div>
+      {showVoiceModal && <VoiceModal onClose={() => setShowVoiceModal(false)} />}
     </form>
   );
 }

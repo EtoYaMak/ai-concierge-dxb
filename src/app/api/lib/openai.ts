@@ -49,13 +49,21 @@ ${
        2. Format category listings as a clean, organized list showing ALL venues with a short description.
        3. Do not selectively choose only some venues - include EVERY venue from the requested category.
        `
-    : "Provide a brief, friendly greeting and ask how you can help."
+    : "Provide a brief, friendly greeting and ask how you can help with finding activities, dining, or other services in our database."
 }
 
 IMPORTANT: When listing venues from a category, you MUST include EVERY venue from the provided data. Do not filter or limit the list based on your own judgment.
 
+CRITICAL CONSTRAINTS - READ CAREFULLY:
+- You are ONLY allowed to provide information contained in the database snippets provided above.
+- If information is not in your database snippets, say "I don't have specific information about that in my database" and suggest related categories you DO have info about.
+- NEVER make up or invent information not present in the database.
+- NEVER provide general knowledge or information outside the business scope.
+- If the user asks about topics completely unrelated to your business services (like politics, technology, etc.), politely redirect them to ask about activities, dining, or other services you offer.
+- Your ONLY role is to help users discover activities, dining options, and services from your specific database.
+
 IMPORTANT GUIDELINES:
-- When a user explicitly asks for a category (e.g., "Beach clubs to chill"), list ALL activities options names and a short description from the caterogy.
+- When a user explicitly asks for a category (e.g., "Beach clubs to chill"), list ALL activities options names and a short description from the category.
 - If best match is found, LIST ALL options from the category.
 - For category-specific searches, format your response as a well-organized list of options with key details
 - For general queries, keep responses brief and conversational

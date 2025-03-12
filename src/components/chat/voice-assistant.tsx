@@ -144,49 +144,6 @@ const RealTimeVoiceAssistant = forwardRef<VoiceAssistantHandle, RealTimeVoiceAss
                             setIsListening(true);
                         } else if (data.type === "input_audio_stream_ended") {
                             setIsListening(false);
-
-                            // Process the transcript when voice input ends
-                            if (data.transcript) {
-                                const transcript = data.transcript;
-                                console.log("Processing transcript:", transcript);
-
-                                // Call API endpoint to process the transcript instead of directly using server modules
-                                fetch('/api/voice/process', {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                    },
-                                    body: JSON.stringify({
-                                        transcript,
-                                        userId: 'default-user' // You can add actual user ID if available
-                                    }),
-                                })
-                                    .then(response => response.json())
-                                    .then(data => {
-                                        if (data.responseText) {
-                                            // Send the response back through the data channel
-                                            if (dcRef.current && dcRef.current.readyState === 'open') {
-                                                dcRef.current.send(JSON.stringify({
-                                                    type: "text_to_speech",
-                                                    text: data.responseText
-                                                }));
-                                            }
-                                        } else {
-                                            throw new Error('No response text received');
-                                        }
-                                    })
-                                    .catch(error => {
-                                        console.error("Error processing voice input:", error);
-
-                                        // Send an error response
-                                        if (dcRef.current && dcRef.current.readyState === 'open') {
-                                            dcRef.current.send(JSON.stringify({
-                                                type: "text_to_speech",
-                                                text: "I'm sorry, I encountered an error while processing your request. Please try again."
-                                            }));
-                                        }
-                                    });
-                            }
                         } else if (data.type === "output_audio_stream_started") {
                             setIsSpeaking(true);
                         } else if (data.type === "output_audio_stream_ended") {

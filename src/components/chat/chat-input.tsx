@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Message } from "@/shared/schema";
 import { useChatContext } from "@/context/chat-context";
-import VoiceModal from "./voice-modal";
+import VoiceChatModal from "@/components/chat/voice-chat-modal";
 
 interface ChatInputProps {
   userId: string | null;
@@ -21,6 +21,7 @@ export default function ChatInput({ userId }: ChatInputProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { addMessage, updateMessage } = useChatContext();
   const [showVoiceModal, setShowVoiceModal] = useState(false);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim() || !userId) return;
@@ -115,6 +116,7 @@ export default function ChatInput({ userId }: ChatInputProps) {
     }
   };
 
+
   return (
     <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
       <Textarea
@@ -137,13 +139,18 @@ export default function ChatInput({ userId }: ChatInputProps) {
           )}
         </Button>
         <Button
+          type="button"
           onClick={() => setShowVoiceModal(true)}
           className="px-4 sm:px-8 h-10 sm:min-h-[62px] w-full sm:w-24"
         >
           <Mic className="h-4 w-4" />
         </Button>
       </div>
-      {showVoiceModal && <VoiceModal onClose={() => setShowVoiceModal(false)} />}
+      {showVoiceModal && (
+        <VoiceChatModal
+          onClose={() => setShowVoiceModal(false)}
+        />
+      )}
     </form>
   );
 }

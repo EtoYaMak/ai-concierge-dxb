@@ -1,9 +1,9 @@
-import { storage } from "../../storage";
-import { vectorStore } from "../../lib/vectorStore";
-import { generateEmbeddings, generateResponse } from "../../lib/openai";
-import { db } from "../../../../lib/db";
+import { storage } from "@/lib/storage";
+import { vectorStore } from "@/lib/vectorStore";
+import { generateEmbeddings, generateResponse } from "@/lib/openai";
+import { db } from "@/lib/db";
 import { sql } from "drizzle-orm";
-import { findCategoryMatch } from "../../lib/categoryMapping";
+import { findCategoryMatch } from "@/lib/categoryMapping";
 
 export const runtime = "edge";
 

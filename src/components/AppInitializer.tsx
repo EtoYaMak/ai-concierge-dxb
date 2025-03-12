@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { initializeApp } from "@/app/api/init";
+import { initializeApp } from "@/lib/init";
 
 export function AppInitializer() {
     useEffect(() => {

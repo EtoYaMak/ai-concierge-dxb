@@ -1,4 +1,4 @@
-import { vectorStore } from "./lib/vectorStore";
+import { vectorStore } from "@/lib/vectorStore";
 
 export async function initializeApp() {
   try {

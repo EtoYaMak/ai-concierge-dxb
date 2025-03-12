@@ -3,11 +3,11 @@ import { insertMessageSchema } from "@/shared/schema";
 import { db } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { messages } from "@/shared/schema";
-import { storage } from "../storage";
-import { vectorStore } from "../lib/vectorStore";
-import { generateResponse, generateEmbeddings } from "../lib/openai";
+import { storage } from "@/lib/storage";
+import { vectorStore } from "@/lib/vectorStore";
+import { generateResponse, generateEmbeddings } from "@/lib/openai";
 import { z } from "zod";
-import { findCategoryMatch } from "../lib/categoryMapping";
+import { findCategoryMatch } from "@/lib/categoryMapping";
 import { sql } from "drizzle-orm";
 
 // Add this to the top of your routes

@@ -1,11 +1,11 @@
 // This must be a server component (no "use client" directive)
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
+import "@/app/globals.css";
 import { ToastProvider } from "@/hooks/use-toast";
 import { ReactQueryProvider } from "@/components/providers/ReactQueryProvider";
 import { AppInitializer } from "@/components/AppInitializer";
-import { initializeApp } from '@/app/api/init';
+import { initializeApp } from "@/lib/init";
 import { ChatProvider } from "@/context/chat-context";
 import { ThemeProvider } from "@/components/theme-provider"
 

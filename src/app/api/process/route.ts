@@ -1,4 +1,4 @@
-import { initializeApp } from "../init";
+import { initializeApp } from "@/lib/init";
 
 export const runtime = "edge";
 

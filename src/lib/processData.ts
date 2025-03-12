@@ -1,7 +1,7 @@
 import { type InsertActivity } from "@/shared/schema";
-import { generateEmbeddings } from "./openai";
-import { storage } from "../storage";
-import nestedData from "../../../assests/nested_data.json";
+import { generateEmbeddings } from "@/lib/openai";
+import { storage } from "@/lib/storage";
+import nestedData from "@/assets/nested_data.json";
 
 const BATCH_SIZE = 5; // Process 5 activities at a time to avoid rate limits
 

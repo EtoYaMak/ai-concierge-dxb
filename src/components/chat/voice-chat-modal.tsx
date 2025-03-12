@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import { X } from "lucide-react";
-import { Button } from "../ui/button";
-import RealTimeVoiceAssistant, { VoiceAssistantHandle } from "./voice-assistant";
+import { Button } from "@/components/ui/button";
+import RealTimeVoiceAssistant, { VoiceAssistantHandle } from "@/components/chat/voice-assistant";
 import { cn } from "@/lib/utils";
 
 interface VoiceModalProps {

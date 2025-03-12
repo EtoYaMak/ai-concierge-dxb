@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState, useRef, forwardRef, useImperativeHandle } from "react";
-import { Button } from "../ui/button";
+import { Button } from "@/components/ui/button";
 
 interface RealTimeVoiceAssistantProps {
     onStateChange?: (state: 'idle' | 'listening' | 'speaking') => void;

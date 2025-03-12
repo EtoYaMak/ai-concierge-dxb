@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import MessageItem from "./message-item";
+import MessageItem from "@/components/chat/message-item";
 import { useChatContext } from "@/context/chat-context";
 import { type Message } from "@/shared/schema";
 

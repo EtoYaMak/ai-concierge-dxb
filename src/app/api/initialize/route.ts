@@ -1,4 +1,4 @@
-import { vectorStore } from "@/app/api/lib/vectorStore";
+import { vectorStore } from "@/lib/vectorStore";
 import { NextResponse } from "next/server";
 
 export async function GET() {

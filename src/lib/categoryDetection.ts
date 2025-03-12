@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { sql } from "drizzle-orm";
-import { findCategoryMatch } from "@/app/api/lib/categoryMapping";
+import { findCategoryMatch } from "@/lib/categoryMapping";
 
 export interface CategoryDetectionResult {
   category?: string;

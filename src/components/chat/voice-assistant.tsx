@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 
 interface RealTimeVoiceAssistantProps {
     onStateChange?: (state: 'idle' | 'listening' | 'speaking') => void;
+    userId?: string; // Add userId prop for message API
 }
 
 // Define the handle type that we'll expose to parent components
@@ -13,7 +14,7 @@ export interface VoiceAssistantHandle {
 }
 
 const RealTimeVoiceAssistant = forwardRef<VoiceAssistantHandle, RealTimeVoiceAssistantProps>(
-    ({ onStateChange }, ref) => {
+    ({ onStateChange, userId = "default-user" }, ref) => {
         const [isListening, setIsListening] = useState(false);
         const [isSpeaking, setIsSpeaking] = useState(false);
         const [isInitialized, setIsInitialized] = useState(false);
@@ -21,6 +22,10 @@ const RealTimeVoiceAssistant = forwardRef<VoiceAssistantHandle, RealTimeVoiceAss
         const pcRef = useRef<RTCPeerConnection | null>(null);
         const streamRef = useRef<MediaStream | null>(null);
         const dcRef = useRef<RTCDataChannel | null>(null);
+        const errorRef = useRef<Error | null>(null);
+
+        // Add a ref to store the latest transcription
+        const latestTranscriptionRef = useRef<{ itemId: string, transcript: string } | null>(null);
 
         // Update parent component when state changes
         useEffect(() => {
@@ -34,6 +39,197 @@ const RealTimeVoiceAssistant = forwardRef<VoiceAssistantHandle, RealTimeVoiceAss
 
             onStateChange?.(currentState);
         }, [isListening, isSpeaking, onStateChange]);
+
+        // Function to handle function calls from the model
+        const handleFunctionCall = async (functionName: string, callId: string, arguments_: string) => {
+            console.log(`Function call received: ${functionName}, callId: ${callId}, arguments:`, arguments_);
+
+            if (functionName === "get_current_time") {
+                // Get the current time in a user-friendly format
+                const now = new Date();
+                const timeString = now.toLocaleTimeString();
+                const dateString = now.toLocaleDateString();
+
+                // Send the function call response back to the model
+                if (dcRef.current && dcRef.current.readyState === "open") {
+                    const functionResponse = {
+                        event_id: `event_${Date.now()}`,
+                        type: "conversation.item.create",
+                        item: {
+                            type: "function_call_output",
+                            call_id: callId,
+                            output: JSON.stringify({
+                                time: timeString,
+                                date: dateString,
+                                timestamp: now.getTime()
+                            })
+                        }
+                    };
+
+                    dcRef.current.send(JSON.stringify(functionResponse));
+
+                    // NEW: Create a response to follow the function output
+                    setTimeout(() => {
+                        if (dcRef.current && dcRef.current.readyState === "open") {
+                            console.log("Triggering assistant response generation with explicit modalities");
+                            const responseCreateEvent = {
+                                event_id: `event_${Date.now()}`,
+                                type: "response.create",
+                                response: {
+                                    modalities: ["text", "audio"],  // Explicitly request audio
+                                    conversation: "auto"            // Use the default conversation
+                                }
+                            };
+                            dcRef.current.send(JSON.stringify(responseCreateEvent));
+                        }
+                    }, 100);
+                }
+            }
+            else if (functionName === "send_transcription") {
+                try {
+                    // Get the latest transcription from our ref, or fall back to arguments
+                    let transcription = "";
+
+                    if (latestTranscriptionRef.current && latestTranscriptionRef.current.transcript) {
+                        transcription = latestTranscriptionRef.current.transcript;
+                        console.log(`Using stored transcription: "${transcription}"`);
+                    } else {
+                        // Try to parse arguments as fallback
+                        try {
+                            const args = arguments_ ? JSON.parse(arguments_) : {};
+                            transcription = args.transcription || "No transcription available";
+                        } catch (e) {
+                            console.error("Error parsing arguments:", e);
+                            transcription = "Failed to parse transcription";
+                        }
+                    }
+
+                    // Use provided userId or default
+                    const effectiveUserId = userId || "voice-user";
+
+                    console.log(`Processing transcription: "${transcription}" for user ${effectiveUserId}`);
+
+                    // Send the transcription to your messages API
+                    const response = await fetch("/api/messages/stream", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            content: transcription,
+                            user_id: effectiveUserId
+                        }),
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`API response error: ${response.status}`);
+                    }
+
+                    // Read the streaming response
+                    const reader = response.body?.getReader();
+                    if (!reader) {
+                        throw new Error("Failed to get response reader");
+                    }
+
+                    let textResult = "";
+
+                    // Process the stream
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+
+                        // Convert the chunk to text and append to result
+                        const chunk = new TextDecoder().decode(value);
+                        textResult += chunk;
+                    }
+
+                    // NEW: Add detailed logging to inspect the API response
+                    console.log("====== API RESPONSE DATA ======");
+                    console.log(textResult);
+                    console.log("===============================");
+
+                    // Try to summarize the size and content of the response
+                    console.log(`Response size: ${textResult.length} characters`);
+                    console.log(`Response preview: ${textResult.substring(0, 200)}...`);
+
+                    // Check if the response contains listings
+                    const containsListings = textResult.includes("•") ||
+                        textResult.includes("-") ||
+                        textResult.includes("1.") ||
+                        /\d+\.\s/.test(textResult);
+                    console.log(`Response contains listings: ${containsListings}`);
+
+                    // Send the response back to the model
+                    if (dcRef.current && dcRef.current.readyState === "open") {
+                        const functionResponse = {
+                            event_id: `event_${Date.now()}`,
+                            type: "conversation.item.create",
+                            item: {
+                                type: "function_call_output",
+                                call_id: callId,
+                                output: JSON.stringify({
+                                    result: textResult,
+                                    success: true
+                                })
+                            }
+                        };
+
+                        // NEW: Log what we're sending back to the assistant
+                        console.log("Sending function output to assistant:");
+                        console.log(JSON.stringify(functionResponse, null, 2));
+
+                        dcRef.current.send(JSON.stringify(functionResponse));
+
+                        // NEW: Create a response to follow the function output
+                        setTimeout(() => {
+                            if (dcRef.current && dcRef.current.readyState === "open") {
+                                console.log("Triggering assistant response generation with explicit modalities");
+                                const responseCreateEvent = {
+                                    event_id: `event_${Date.now()}`,
+                                    type: "response.create",
+                                    response: {
+                                        modalities: ["text", "audio"],  // Explicitly request audio
+                                        conversation: "auto"            // Use the default conversation
+                                    }
+                                };
+                                dcRef.current.send(JSON.stringify(responseCreateEvent));
+                            }
+                        }, 100);
+                    }
+                } catch (error) {
+                    console.error("Error processing transcription:", error);
+
+                    // Send error response back to the model
+                    if (dcRef.current && dcRef.current.readyState === "open") {
+                        const functionResponse = {
+                            event_id: `event_${Date.now()}`,
+                            type: "conversation.item.create",
+                            item: {
+                                type: "function_call_output",
+                                call_id: callId,
+                                output: JSON.stringify({
+                                    error: `Failed to process transcription: ${errorRef.current?.message}`,
+                                    success: false
+                                })
+                            }
+                        };
+
+                        dcRef.current.send(JSON.stringify(functionResponse));
+
+                        // NEW: Create a response even after error
+                        setTimeout(() => {
+                            if (dcRef.current && dcRef.current.readyState === "open") {
+                                const responseCreateEvent = {
+                                    event_id: `event_${Date.now()}`,
+                                    type: "response.create"
+                                };
+                                dcRef.current.send(JSON.stringify(responseCreateEvent));
+                            }
+                        }, 100);
+                    }
+                }
+            }
+        };
 
         // Cleanup function to safely release resources
         const cleanup = () => {
@@ -140,6 +336,9 @@ const RealTimeVoiceAssistant = forwardRef<VoiceAssistantHandle, RealTimeVoiceAss
                 dc.addEventListener("message", (e) => {
                     try {
                         const data = JSON.parse(e.data);
+                        console.log("Received event:", data.type);
+
+                        // Handle input/output audio stream events
                         if (data.type === "input_audio_stream_started") {
                             setIsListening(true);
                         } else if (data.type === "input_audio_stream_ended") {
@@ -148,6 +347,41 @@ const RealTimeVoiceAssistant = forwardRef<VoiceAssistantHandle, RealTimeVoiceAss
                             setIsSpeaking(true);
                         } else if (data.type === "output_audio_stream_ended") {
                             setIsSpeaking(false);
+                        }
+                        // Handle error events with detailed logging
+                        else if (data.type === "error") {
+                            console.error("Received error event from server:", data.error);
+                            // Log full error details
+                            if (data.error) {
+                                console.error("Error type:", data.error.type);
+                                console.error("Error message:", data.error.message);
+                                console.error("Error code:", data.error.code);
+                            }
+                        }
+                        // Handle response events for debugging
+                        else if (data.type === "response.created" || data.type === "response.done") {
+                            console.log("Response event details:", data);
+                        }
+                        // NEW: Handle transcription completed events
+                        else if (data.type === "conversation.item.input_audio_transcription.completed") {
+                            console.log("Transcription completed:", data.transcript);
+                            // Store the transcription for later use
+                            latestTranscriptionRef.current = {
+                                itemId: data.item_id,
+                                transcript: data.transcript
+                            };
+                        }
+                        // Handle function calls from the model
+                        else if (data.type === "conversation.item.created" &&
+                            data.item &&
+                            data.item.type === "function_call") {
+                            // Extract function call details
+                            const functionName = data.item.name;
+                            const callId = data.item.call_id;
+                            const args = data.item.arguments;
+
+                            // Handle the function call
+                            handleFunctionCall(functionName, callId, args);
                         }
                     } catch (err) {
                         console.error("Error parsing data channel message:", err);

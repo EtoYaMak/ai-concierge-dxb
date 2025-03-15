@@ -2,6 +2,9 @@ import { storage } from "@/lib/storage";
 import { vectorStore } from "@/lib/vectorStore";
 import { generateEmbeddings, generateResponse } from "@/lib/openai";
 import { findCategoryMatch } from "@/lib/categoryMapping";
+import { detectEntityQuery } from "@/lib/entityDetection";
+import { conversationMemory } from "@/lib/conversationMemory";
+import { Activity } from "@/shared/schema";
 
 export const runtime = "edge";
 
@@ -49,17 +52,96 @@ export async function POST(req: Request) {
       storage.getMessages(user_id, { limit: 10 }),
     ]);
 
-    // Use the existing category mapping function
-    const { category, subcategory } = findCategoryMatch(content);
-    console.log(`Category detection result: ${category}/${subcategory}`);
+    // Initialize relevantData as an empty array
+    let relevantData: Activity[] = [];
+    let searchMethod = "";
 
-    // Find similar activities using the vectorStore's built-in category filtering
-    const relevantData = await vectorStore.findSimilar(
-      queryEmbeddings,
-      category ? 25 : 5, // Increase limit when category is detected
-      category,
-      subcategory
-    );
+    // STEP 1: Check if this is likely an entity query (specific beach, hotel, etc.)
+    if (detectEntityQuery(content)) {
+      console.log("Detected entity query, attempting entity search first");
+      const entityResults = await vectorStore.findByEntity(content);
+
+      if (entityResults.length > 0) {
+        console.log(`Found ${entityResults.length} results via entity search`);
+        relevantData = entityResults;
+        searchMethod = "entity";
+      }
+    }
+
+    // STEP 2: If no entity results, try the standard category-based approach
+    if (relevantData.length === 0) {
+      const { category, subcategory } = findCategoryMatch(content);
+      console.log(`Category detection result: ${category}/${subcategory}`);
+
+      const categoryResults = await vectorStore.findSimilar(
+        queryEmbeddings,
+        category ? 25 : 5, // Increase limit when category is detected
+        category,
+        subcategory
+      );
+
+      if (categoryResults.length > 0) {
+        console.log(
+          `Found ${categoryResults.length} results via category search`
+        );
+        relevantData = categoryResults;
+        searchMethod = "category";
+      }
+    }
+
+    // STEP 3: If still no results, try using conversation context
+    if (relevantData.length === 0) {
+      console.log(
+        "No results from standard search methods, trying conversation context"
+      );
+      const contextData = conversationMemory.getRelatedData(user_id);
+
+      // Try each recent category and subcategory
+      if (
+        contextData.categories.length > 0 &&
+        contextData.subcategories.length > 0
+      ) {
+        for (const cat of contextData.categories) {
+          if (relevantData.length > 0) break;
+
+          for (const subcat of contextData.subcategories) {
+            console.log(`Trying context fallback with ${cat}/${subcat}`);
+            const contextResults = await vectorStore.findSimilar(
+              queryEmbeddings,
+              10,
+              cat,
+              subcat
+            );
+
+            if (contextResults.length > 0) {
+              console.log(
+                `Found ${contextResults.length} results using conversation context`
+              );
+              relevantData = contextResults;
+              searchMethod = "context";
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // STEP 4: Last resort - pure vector search with lower threshold
+    if (relevantData.length === 0) {
+      console.log("Falling back to pure vector similarity search");
+      const vectorResults = await vectorStore.findSimilar(queryEmbeddings, 10);
+
+      if (vectorResults.length > 0) {
+        console.log(
+          `Found ${vectorResults.length} results via fallback vector search`
+        );
+        relevantData = vectorResults;
+        searchMethod = "vector";
+      }
+    }
+
+    // Update conversation memory with results and query
+    conversationMemory.update(user_id, content, relevantData);
 
     // Create a streaming response
     const encoder = new TextEncoder();
@@ -76,6 +158,64 @@ export async function POST(req: Request) {
     const sendChunk = async (chunk: StreamChunk) => {
       await writer.write(encoder.encode(JSON.stringify(chunk) + "\n"));
     };
+
+    // If we have no results at all, let the user know
+    if (relevantData.length === 0) {
+      const noResultsChunk: StreamChunk = {
+        id: `chunk_${Date.now()}_no_results`,
+        type: "sentence",
+        content:
+          "I don't have any specific information about that. Could you provide more details or ask about something else?",
+        timestamp: Date.now(),
+        isFinal: false,
+      };
+      await sendChunk(noResultsChunk);
+
+      // Check if we have any previous topics to suggest
+      const contextData = conversationMemory.getRelatedData(user_id);
+      if (contextData.entities.length > 0 || contextData.topics.length > 0) {
+        const suggestionsChunk: StreamChunk = {
+          id: `chunk_${Date.now()}_suggestions`,
+          type: "sentence",
+          content: `You recently asked about ${[
+            ...contextData.entities,
+            ...contextData.topics,
+          ]
+            .slice(0, 3)
+            .join(", ")}. Would you like to know more about any of these?`,
+          timestamp: Date.now(),
+          isFinal: false,
+        };
+        await sendChunk(suggestionsChunk);
+      }
+
+      // Send a final completion chunk
+      const finalNoResultsChunk: StreamChunk = {
+        id: `chunk_${Date.now()}_final`,
+        type: "complete",
+        content:
+          "I don't have any specific information about that. Could you provide more details or ask about something else?",
+        timestamp: Date.now(),
+        isFinal: true,
+      };
+
+      await sendChunk(finalNoResultsChunk);
+      await storage.createMessage({
+        content: finalNoResultsChunk.content,
+        role: "assistant",
+        user_id,
+      });
+
+      writer.close();
+
+      return new Response(stream.readable, {
+        headers: {
+          "Content-Type": "application/json",
+          "Transfer-Encoding": "chunked",
+          Connection: "keep-alive",
+        },
+      });
+    }
 
     // Start streaming response generation
     generateResponse(

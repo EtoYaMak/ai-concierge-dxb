@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { type Activity } from "@/shared/schema";
 import { sql } from "drizzle-orm";
+import { extractEntitiesFromQuery } from "@/lib/entityDetection";
 
 export class VectorStore {
   private initialized = false;
@@ -223,6 +224,80 @@ export class VectorStore {
       // Now timerLabel is in scope
       console.timeEnd(timerLabel);
       console.error("Vector search error:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Search for activities by entity name
+   * This method extracts potential entity names from the query and searches for them
+   * in the name, description, and other relevant fields
+   */
+  async findByEntity(query: string, limit: number = 10): Promise<Activity[]> {
+    if (!this.initialized) {
+      console.warn("VectorStore: Not initialized when searching for entity");
+      return [];
+    }
+
+    // Create a cache key for entity searches
+    const cacheKey = `entity:${query}`;
+
+    // Check if we have cached results
+    if (this.similarityCache.has(cacheKey)) {
+      console.log("VectorStore: Using cached entity search results");
+      return this.similarityCache.get(cacheKey)!;
+    }
+
+    try {
+      console.log(`Searching for entity in query: "${query}"`);
+      const startTime = performance.now();
+
+      // Extract potential entity names from the query
+      const entities = extractEntitiesFromQuery(query);
+      console.log(`Extracted potential entities: ${entities.join(", ")}`);
+
+      if (entities.length === 0) {
+        console.log("No entities found in query");
+        return [];
+      }
+
+      // Build SQL condition for each entity
+      const sqlConditions = entities.map((entity) => {
+        const escapedEntity = entity.replace(/'/g, "''"); // Escape single quotes
+        const pattern = `%${escapedEntity}%`;
+
+        return sql`
+          name ILIKE ${pattern} OR 
+          description ILIKE ${pattern} OR
+          information ILIKE ${pattern}
+        `;
+      });
+
+      // Combine conditions with OR
+      const combinedCondition = sql.join(sqlConditions, sql` OR `);
+
+      // Execute the query
+      const result = await db.execute(
+        sql`
+          SELECT *
+          FROM activities
+          WHERE ${combinedCondition}
+          LIMIT ${limit}
+        `
+      );
+
+      const endTime = performance.now();
+      console.log(`Entity search completed in ${endTime - startTime}ms`);
+      console.log(`Found ${result.rows.length} activities by entity search`);
+
+      const activities = result.rows as Activity[];
+
+      // Cache the results
+      this.cacheResults(cacheKey, activities);
+
+      return activities;
+    } catch (error) {
+      console.error("Error during entity search:", error);
       return [];
     }
   }

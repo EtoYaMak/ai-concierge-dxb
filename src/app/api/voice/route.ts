@@ -5,6 +5,21 @@ import { findCategoryMatch } from "@/lib/categoryMapping";
 
 export const runtime = "edge";
 
+// Types for our streaming response
+interface StreamChunk {
+  id: string;
+  type: "sentence" | "partial" | "complete";
+  content: string;
+  timestamp: number;
+  isFinal: boolean;
+  metadata?: {
+    isListItem?: boolean;
+    index?: number;
+    totalItems?: number;
+    error?: boolean;
+  };
+}
+
 export async function POST(req: Request) {
   try {
     const { content, user_id } = await req.json();
@@ -52,6 +67,15 @@ export async function POST(req: Request) {
     const writer = stream.writable.getWriter();
 
     let fullResponse = "";
+    let currentSentence = "";
+    let chunkId = 0;
+    let listItemCount = 0;
+    let isInListItem = false;
+
+    // Helper to send a chunk
+    const sendChunk = async (chunk: StreamChunk) => {
+      await writer.write(encoder.encode(JSON.stringify(chunk) + "\n"));
+    };
 
     // Start streaming response generation
     generateResponse(
@@ -59,11 +83,54 @@ export async function POST(req: Request) {
       relevantData,
       async (chunk) => {
         fullResponse += chunk;
-        await writer.write(encoder.encode(chunk));
+        currentSentence += chunk;
+
+        // Detect list items
+        if (chunk.match(/^\d+\.|^\*\*|^•/)) {
+          isInListItem = true;
+          listItemCount++;
+        }
+
+        // Check for sentence endings or list item boundaries
+        const shouldSendChunk =
+          /[.!?\n]/.test(chunk) || (isInListItem && chunk.includes("\n"));
+
+        if (shouldSendChunk && currentSentence.trim()) {
+          const streamChunk: StreamChunk = {
+            id: `chunk_${Date.now()}_${chunkId++}`,
+            type: "sentence",
+            content: currentSentence.trim(),
+            timestamp: Date.now(),
+            isFinal: false,
+            metadata: isInListItem
+              ? {
+                  isListItem: true,
+                  index: listItemCount,
+                  totalItems: undefined, // Will be updated in final chunk
+                }
+              : undefined,
+          };
+
+          await sendChunk(streamChunk);
+          currentSentence = "";
+          isInListItem = false;
+        }
       }
     )
       .then(async () => {
-        // Store the complete response when done
+        // Send final completion chunk
+        const finalChunk: StreamChunk = {
+          id: `chunk_${Date.now()}_final`,
+          type: "complete",
+          content: fullResponse,
+          timestamp: Date.now(),
+          isFinal: true,
+          metadata: {
+            totalItems: listItemCount,
+          },
+        };
+
+        await sendChunk(finalChunk);
         await storage.createMessage({
           content: fullResponse,
           role: "assistant",
@@ -74,18 +141,25 @@ export async function POST(req: Request) {
       })
       .catch(async (error) => {
         console.error("Error in streaming response:", error);
-        await writer.write(
-          encoder.encode(
-            "\n\nSorry, an error occurred while generating the response."
-          )
-        );
+        const errorChunk: StreamChunk = {
+          id: `chunk_${Date.now()}_error`,
+          type: "complete",
+          content: "Sorry, an error occurred while generating the response.",
+          timestamp: Date.now(),
+          isFinal: true,
+          metadata: {
+            error: true,
+          },
+        };
+        await sendChunk(errorChunk);
         writer.close();
       });
 
     return new Response(stream.readable, {
       headers: {
-        "Content-Type": "text/plain; charset=utf-8",
+        "Content-Type": "application/json",
         "Transfer-Encoding": "chunked",
+        Connection: "keep-alive",
       },
     });
   } catch (error) {
